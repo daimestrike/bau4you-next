@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentUser, getProfile, updateProfile, supabase } from '@/lib/supabase'
+import LocationSelector from '@/components/ui/LocationSelector'
 
 interface ProfileData {
   id: string
@@ -15,11 +16,14 @@ interface ProfileData {
   website?: string
   country?: string
   city?: string
+  region?: string
+  region_id?: string | null
+  city_id?: string | null
   street_address?: string
   description?: string
   headline?: string
   role: 'contractor' | 'client' | 'supplier'
-  years_experience?: number
+  years_experience?: number | null
 }
 
 interface ProfileExperience {
@@ -55,11 +59,14 @@ export default function EditProfilePage() {
     website: '',
     country: '',
     city: '',
+    region: '',
+    region_id: '',
+    city_id: '',
     street_address: '',
     description: '',
     headline: '',
     role: 'client' as 'contractor' | 'client' | 'supplier',
-    years_experience: 0
+    years_experience: ''
   })
 
   useEffect(() => {
@@ -86,11 +93,14 @@ export default function EditProfilePage() {
             website: profileData.website || '',
             country: profileData.country || '',
             city: profileData.city || '',
+            region: profileData.region || '',
+            region_id: profileData.region_id || '',
+            city_id: profileData.city_id || '',
             street_address: profileData.street_address || '',
             description: profileData.description || '',
             headline: profileData.headline || '',
             role: profileData.role,
-            years_experience: profileData.years_experience || 0
+            years_experience: profileData.years_experience ? profileData.years_experience.toString() : ''
           })
         }
 
@@ -133,7 +143,7 @@ export default function EditProfilePage() {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'years_experience' ? parseInt(value) || 0 : value
+      [name]: value
     }))
   }
 
@@ -149,7 +159,41 @@ export default function EditProfilePage() {
         return
       }
 
-      const { error } = await updateProfile(user.id, formData)
+      // Подготавливаем данные для отправки
+      const dataToUpdate: Record<string, unknown> = { ...formData }
+      
+      console.log('Form data before processing:', formData)
+      console.log('Data to update before processing:', dataToUpdate)
+      console.log('Keys in dataToUpdate before processing:', Object.keys(dataToUpdate))
+      
+      // Конвертируем years_experience в число или null
+      if (typeof dataToUpdate.years_experience === 'string') {
+        if (dataToUpdate.years_experience === '' || dataToUpdate.years_experience === '0') {
+          dataToUpdate.years_experience = null
+        } else {
+          const parsed = parseInt(dataToUpdate.years_experience as string, 10)
+          dataToUpdate.years_experience = isNaN(parsed) ? null : parsed
+        }
+      }
+      
+      // Убираем пустые строки для ID полей
+      if (dataToUpdate.region_id === '') {
+        dataToUpdate.region_id = null
+      }
+      if (dataToUpdate.city_id === '') {
+        dataToUpdate.city_id = null
+      }
+
+      console.log('Data to update after processing:', dataToUpdate)
+      console.log('Keys in dataToUpdate after processing:', Object.keys(dataToUpdate))
+      
+      // Check if updated_at is somehow in the data
+      if ('updated_at' in dataToUpdate) {
+        console.error('CRITICAL: updated_at found in form data!', dataToUpdate.updated_at)
+        delete dataToUpdate.updated_at
+      }
+
+      const { error } = await updateProfile(user.id, dataToUpdate)
       if (error) {
         throw error
       }
@@ -401,18 +445,28 @@ export default function EditProfilePage() {
               />
             </div>
 
-            <div>
-              <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
-                Город
-              </label>
-              <input
-                type="text"
-                id="city"
-                name="city"
-                value={formData.city}
-                onChange={handleInputChange}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                placeholder="Москва"
+            <div className="md:col-span-2">
+              <LocationSelector
+                regionId={formData.region_id || ''}
+                cityId={formData.city_id || ''}
+                onRegionChange={(regionId, regionName) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    region_id: regionId,
+                    region: regionName
+                  }))
+                }}
+                onCityChange={(cityId, cityName) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    city_id: cityId,
+                    city: cityName
+                  }))
+                }}
+                placeholder={{
+                  region: 'Выберите регион',
+                  city: 'Выберите город'
+                }}
               />
             </div>
 

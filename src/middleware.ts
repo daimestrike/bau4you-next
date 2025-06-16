@@ -112,5 +112,5 @@ export async function middleware(req: NextRequest) {
 // ✅ Можно сосредоточиться на основной функциональности
 
 export const config = {
-  matcher: [], // Пустой массив = middleware отключен
+  matcher: [] // Middleware временно отключен
 } 

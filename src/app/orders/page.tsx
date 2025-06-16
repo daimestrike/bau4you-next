@@ -201,13 +201,44 @@ export default function OrdersPage() {
   return (
     <main className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="flex justify-between items-center mb-8">
+        <div>
         <h1 className="text-3xl font-bold text-gray-900">Управление заказами</h1>
+          <p className="text-gray-600 mt-2">Просматривайте и управляйте заказами ваших товаров</p>
+        </div>
+        <div className="flex gap-3">
+          <Link
+            href="/orders/my-products"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Мои товары
+          </Link>
         <Link
           href="/dashboard"
           className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
         >
-          ← Назад к дашборду
+            ← Дашборд
+          </Link>
+        </div>
+      </div>
+
+      {/* Навигационные вкладки */}
+      <div className="bg-white rounded-lg shadow-sm mb-6">
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8 px-6">
+            <Link
+              href="/orders"
+              className="border-blue-500 text-blue-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+            >
+              Заказы
+            </Link>
+            <Link
+              href="/orders/my-products"
+              className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+            >
+              Мои товары
         </Link>
+          </nav>
+        </div>
       </div>
 
       {error && (

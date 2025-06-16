@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { getCurrentUser, getProfile, supabase, signOut } from '@/lib/supabase'
+import { getCurrentUser, getProfile, supabase, signOut, getUserCompanies } from '@/lib/supabase'
 import {
   User,
   Building2,
@@ -56,6 +56,7 @@ function ProfileDetails() {
   const router = useRouter()
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [company, setCompany] = useState<CompanyData | null>(null)
+  const [employeeCompanies, setEmployeeCompanies] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -76,16 +77,36 @@ function ProfileDetails() {
         setProfile(profileData)
 
         // Загружаем информацию о компании
+        try {
         const { data: companyData, error: companyError } = await supabase
           .from('companies')
           .select('*')
           .eq('owner_id', user.id)
           .single()
 
-        if (companyError && companyError.code !== 'PGRST116') {
+          if (companyError) {
+            if (companyError.code !== 'PGRST116') {
           console.error('Error loading company:', companyError)
+            }
+            // Если компании нет (PGRST116) или другая ошибка - просто не устанавливаем компанию
         } else if (companyData) {
           setCompany(companyData)
+          }
+        } catch (companyErr) {
+          console.error('Exception loading company:', companyErr)
+          // Игнорируем ошибку и продолжаем без компании
+        }
+
+        // Загружаем компании, где пользователь является сотрудником
+        try {
+          const { data: employeeCompaniesData, error: employeeError } = await getUserCompanies(user.id)
+          if (employeeError) {
+            console.error('Error loading employee companies:', employeeError)
+          } else if (employeeCompaniesData) {
+            setEmployeeCompanies(employeeCompaniesData)
+          }
+        } catch (employeeErr) {
+          console.error('Exception loading employee companies:', employeeErr)
         }
 
       } catch (err: unknown) {
@@ -142,6 +163,33 @@ function ProfileDetails() {
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="text-center">
           <p className="text-gray-500">Профиль не найден</p>
+        </div>
+      </main>
+    )
+  }
+
+  // Проверяем, заполнен ли профиль
+  const isProfileIncomplete = !profile.name_first && !profile.name_last && !profile.phone && !profile.company_name
+  
+  if (isProfileIncomplete) {
+    return (
+      <main className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-yellow-800 mb-4">
+              Завершите настройку профиля
+            </h2>
+            <p className="text-yellow-700 mb-6">
+              Ваш профиль не заполнен. Пожалуйста, добавьте основную информацию о себе.
+            </p>
+            <Link 
+              href="/profile/edit" 
+              className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition-colors inline-flex items-center"
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Заполнить профиль
+            </Link>
+          </div>
         </div>
       </main>
     )
@@ -374,6 +422,79 @@ function ProfileDetails() {
             >
               Создать профиль компании
             </Link>
+          </div>
+        )}
+
+        {/* Компании, где пользователь является сотрудником */}
+        {employeeCompanies.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center mb-4">
+              <Briefcase className="w-5 h-5 mr-2 text-green-600" />
+              Работаю в компаниях
+            </h2>
+            
+            <div className="space-y-4">
+              {employeeCompanies.map((employeeCompany) => (
+                <div key={employeeCompany.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-4">
+                      <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+                        {employeeCompany.companies.logo_url ? (
+                          <img
+                            src={employeeCompany.companies.logo_url}
+                            alt={employeeCompany.companies.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Building2 className="w-6 h-6 text-gray-500" />
+                        )}
+                      </div>
+                      
+                      <div className="flex-1">
+                        <Link
+                          href={`/companies/${employeeCompany.companies.id}`}
+                          className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors"
+                        >
+                          {employeeCompany.companies.name}
+                        </Link>
+                        
+                        <div className="mt-1 space-y-1">
+                          {employeeCompany.position && (
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">Должность:</span> {employeeCompany.position}
+                            </p>
+                          )}
+                          
+                          {employeeCompany.companies.type && (
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">Тип:</span> {
+                                employeeCompany.companies.type === 'contractor' ? 'Подрядчик' :
+                                employeeCompany.companies.type === 'supplier' ? 'Поставщик' :
+                                employeeCompany.companies.type === 'both' ? 'Подрядчик и поставщик' :
+                                employeeCompany.companies.type
+                              }
+                            </p>
+                          )}
+                          
+                          {employeeCompany.companies.location && (
+                            <p className="text-sm text-gray-600">
+                              <MapPin className="w-4 h-4 inline mr-1" />
+                              {employeeCompany.companies.location}
+                            </p>
+                          )}
+                          
+                          {employeeCompany.is_key_person && (
+                            <span className="inline-block mt-1 bg-yellow-100 text-yellow-800 px-2 py-1 text-xs rounded">
+                              Ключевой сотрудник
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

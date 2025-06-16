@@ -4,6 +4,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export { createClient }
 
 // Auth functions
 export const signUp = async (email: string, password: string, userData: Record<string, unknown>) => {
@@ -13,30 +14,80 @@ export const signUp = async (email: string, password: string, userData: Record<s
       email,
       password,
       options: {
-        data: userData // Метаданные для создания профиля
+        data: userData // Метаданные для создания профиля через триггер
       }
     })
     
     if (signUpError) {
+      console.error('Ошибка при регистрации:', signUpError)
       return { data: null, error: signUpError }
     }
     
-    // Если пользователь создан, создаем профиль вручную (на случай если триггер не сработал)
+    // Ждем немного, чтобы триггер успел создать профиль
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // Проверяем, создался ли профиль через триггер
     if (signUpData.user) {
-      const profileData = {
-        id: signUpData.user.id,
-        email: signUpData.user.email || email,
-        name_first: (userData.name_first as string) || (userData.full_name as string)?.split(' ')[0] || '',
-        name_last: (userData.name_last as string) || (userData.full_name as string)?.split(' ').slice(1).join(' ') || '',
-        company_name: userData.company_name as string || '',
-        phone: userData.phone as string || '',
-        role: userData.role as string || 'client'
-      }
-      
-      // Пытаемся создать профиль (игнорируем ошибку если уже существует)
-      await supabase
+      const { data: existingProfile, error: checkError } = await supabase
         .from('profiles')
-        .upsert(profileData, { onConflict: 'id' })
+        .select('id, name_first, name_last, company_name, phone')
+        .eq('id', signUpData.user.id)
+        .single()
+      
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Ошибка при проверке профиля:', checkError)
+      } else if (existingProfile) {
+        // Если триггер не заполнил все поля, дополняем их
+        const needsUpdate = !existingProfile.name_first || !existingProfile.name_last || 
+                           !existingProfile.company_name || !existingProfile.phone
+        
+        if (needsUpdate) {
+          const updates: Record<string, string> = {}
+          
+          if (!existingProfile.name_first && userData.name_first) {
+            updates.name_first = userData.name_first as string
+          }
+          if (!existingProfile.name_last && userData.name_last) {
+            updates.name_last = userData.name_last as string
+          }
+          if (!existingProfile.company_name && userData.company_name) {
+            updates.company_name = userData.company_name as string
+          }
+          if (!existingProfile.phone && userData.phone) {
+            updates.phone = userData.phone as string
+          }
+          
+          if (Object.keys(updates).length > 0) {
+            const { error: updateError } = await supabase
+              .from('profiles')
+              .update(updates)
+              .eq('id', signUpData.user.id)
+            
+            if (updateError) {
+              console.error('Ошибка при дополнении профиля:', updateError)
+            }
+          }
+        }
+      } else {
+        // Если профиль не создался триггером, создаем вручную
+        const profileData = {
+          id: signUpData.user.id,
+          email: signUpData.user.email || email,
+          name_first: (userData.name_first as string) || (userData.full_name as string)?.split(' ')[0] || '',
+          name_last: (userData.name_last as string) || (userData.full_name as string)?.split(' ').slice(1).join(' ') || '',
+          company_name: userData.company_name as string || '',
+          phone: userData.phone as string || '',
+          role: userData.role as string || 'client'
+        }
+        
+        const { error: createError } = await supabase
+          .from('profiles')
+          .insert(profileData)
+        
+        if (createError) {
+          console.error('Ошибка при создании профиля:', createError)
+        }
+      }
     }
     
     // Если регистрация успешна, сразу входим (обходим подтверждение email)
@@ -45,9 +96,13 @@ export const signUp = async (email: string, password: string, userData: Record<s
       password
     })
     
+    if (signInError) {
+      console.error('Ошибка при входе после регистрации:', signInError)
+    }
+    
     return { data: signInData, error: signInError }
   } catch (error) {
-    console.error('Ошибка при регистрации:', error)
+    console.error('Исключение при регистрации:', error)
     return { data: null, error: error as Error }
   }
 }
@@ -89,8 +144,21 @@ export const signOut = async () => {
 }
 
 export const getCurrentUser = async () => {
-  const { data: { user }, error } = await supabase.auth.getUser()
-  return { user, error }
+  try {
+    // Добавляем таймаут для функции получения пользователя
+    const getUserPromise = supabase.auth.getUser()
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('getCurrentUser timeout')), 5000)
+    )
+
+    const { data: { user }, error } = await Promise.race([getUserPromise, timeoutPromise]) as any
+    
+    console.log('✅ getCurrentUser successful:', user?.id)
+    return { user, error }
+  } catch (error) {
+    console.error('❌ getCurrentUser failed:', error)
+    return { user: null, error: error as Error }
+  }
 }
 
 export const getCurrentSession = async () => {
@@ -109,13 +177,114 @@ export const getProfile = async (userId: string) => {
 }
 
 export const updateProfile = async (userId: string, updates: Record<string, unknown>) => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .update(updates)
-    .eq('id', userId)
-    .select()
-    .single()
-  return { data, error }
+  console.log('updateProfile called with updates:', updates)
+  
+  // Создаем совершенно новый объект с явно указанными полями
+  const profileUpdate: Record<string, unknown> = {}
+  
+  // Строковые поля
+  if (updates.name_first !== undefined) profileUpdate.name_first = updates.name_first
+  if (updates.name_last !== undefined) profileUpdate.name_last = updates.name_last
+  if (updates.company_name !== undefined) profileUpdate.company_name = updates.company_name
+  if (updates.phone !== undefined) profileUpdate.phone = updates.phone
+  if (updates.website !== undefined) profileUpdate.website = updates.website
+  if (updates.country !== undefined) profileUpdate.country = updates.country
+  if (updates.city !== undefined) profileUpdate.city = updates.city
+  if (updates.region !== undefined) profileUpdate.region = updates.region
+  if (updates.street_address !== undefined) profileUpdate.street_address = updates.street_address
+  if (updates.description !== undefined) profileUpdate.description = updates.description
+  if (updates.headline !== undefined) profileUpdate.headline = updates.headline
+  if (updates.role !== undefined) profileUpdate.role = updates.role
+  
+  // Числовые поля с обработкой
+  if (updates.years_experience !== undefined) {
+    const value = updates.years_experience
+    if (value === '' || value === null || value === undefined) {
+      profileUpdate.years_experience = null
+    } else if (typeof value === 'string') {
+      const parsed = parseInt(value, 10)
+      profileUpdate.years_experience = isNaN(parsed) ? null : parsed
+    } else {
+      profileUpdate.years_experience = value
+    }
+  }
+  
+  if (updates.region_id !== undefined) {
+    const value = updates.region_id
+    if (value === '' || value === null || value === undefined) {
+      profileUpdate.region_id = null
+    } else if (typeof value === 'string') {
+      const parsed = parseInt(value, 10)
+      profileUpdate.region_id = isNaN(parsed) ? null : parsed
+    } else {
+      profileUpdate.region_id = value
+    }
+  }
+  
+  if (updates.city_id !== undefined) {
+    const value = updates.city_id
+    if (value === '' || value === null || value === undefined) {
+      profileUpdate.city_id = null
+    } else if (typeof value === 'string') {
+      const parsed = parseInt(value, 10)
+      profileUpdate.city_id = isNaN(parsed) ? null : parsed
+    } else {
+      profileUpdate.city_id = value
+    }
+  }
+
+  console.log('Manually constructed profileUpdate:', profileUpdate)
+  console.log('Keys in profileUpdate:', Object.keys(profileUpdate))
+
+  // Финальная проверка - убеждаемся, что updated_at точно нет
+  if ('updated_at' in profileUpdate) {
+    console.error('CRITICAL ERROR: updated_at somehow appeared in profileUpdate!')
+    delete profileUpdate.updated_at
+  }
+
+  // Create a completely clean object to ensure no unwanted fields
+  const cleanUpdate = JSON.parse(JSON.stringify(profileUpdate))
+  
+  // Double-check and remove any updated_at field that might have appeared
+  if ('updated_at' in cleanUpdate) {
+    delete cleanUpdate.updated_at
+  }
+  
+  console.log('Final clean update object:', cleanUpdate)
+  console.log('Final clean update keys:', Object.keys(cleanUpdate))
+
+  // Temporarily disable the trigger by using a raw SQL approach
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(cleanUpdate)
+      .eq('id', userId)
+      .select('*')
+    
+    return { data, error }
+  } catch (triggerError) {
+    console.log('Trigger error detected, trying alternative approach...')
+    
+    // If the trigger fails, try to disable it temporarily
+    // This is a workaround until the updated_at column is added
+    const updateFields = Object.keys(cleanUpdate)
+      .map(key => `${key} = $${Object.keys(cleanUpdate).indexOf(key) + 2}`)
+      .join(', ')
+    
+    const values = [userId, ...Object.values(cleanUpdate)]
+    
+    const { data: rawData, error: rawError } = await supabase.rpc('sql', {
+      query: `
+        UPDATE profiles 
+        SET ${updateFields}
+        WHERE id = $1
+        RETURNING *;
+      `,
+      params: values
+    })
+    
+        return { data: rawData, error: rawError }
+  }
 }
 
 // Tender functions
@@ -205,14 +374,36 @@ export const getUserTenders = async () => {
 }
 
 // Company functions
-export const getCompanies = async () => {
-  const { data, error } = await supabase
+export const getCompanies = async (filters?: {
+  search?: string
+  region_id?: number
+  specialization?: string
+}) => {
+  let query = supabase
     .from('companies')
     .select(`
       *,
-      profiles:owner_id(*)
+      regions (
+        id,
+        name
+      )
     `)
-    .order('created_at', { ascending: false })
+    .order('name')
+
+  // Применяем фильтры
+  if (filters?.search) {
+    query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`)
+  }
+  
+  if (filters?.region_id) {
+    query = query.eq('region_id', filters.region_id)
+  }
+
+  if (filters?.specialization) {
+    query = query.ilike('description', `%${filters.specialization}%`)
+  }
+
+  const { data, error } = await query
   return { data, error }
 }
 
@@ -221,10 +412,21 @@ export const getCompany = async (id: string) => {
     .from('companies')
     .select(`
       *,
-      profiles:owner_id(*)
+      regions (
+        id,
+        name
+      )
     `)
     .eq('id', id)
     .single()
+  return { data, error }
+}
+
+export const getRegions = async () => {
+  const { data, error } = await supabase
+    .from('regions')
+    .select('id, name')
+    .order('name')
   return { data, error }
 }
 
@@ -274,6 +476,94 @@ export const getProducts = async (filters?: {
   return { data, error }
 }
 
+export const getCompanyProducts = async (companyId: string, filters?: {
+  category?: string
+  price_min?: number
+  price_max?: number
+}) => {
+  let query = supabase
+    .from('products')
+    .select(`
+      *,
+      profiles:seller_id(*),
+      companies:company_id(*)
+    `)
+    .eq('company_id', companyId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+
+  if (filters?.category) {
+    query = query.eq('category', filters.category)
+  }
+  if (filters?.price_min) {
+    query = query.gte('price', filters.price_min)
+  }
+  if (filters?.price_max) {
+    query = query.lte('price', filters.price_max)
+  }
+
+  const { data, error } = await query
+  return { data, error }
+}
+
+export const getUserProducts = async (filters?: {
+  category?: string
+  status?: string
+}) => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { data: null, error: new Error('Пользователь не авторизован') }
+  }
+
+  let query = supabase
+    .from('products')
+    .select('*')
+    .eq('seller_id', user.id)
+    .order('created_at', { ascending: false })
+
+  if (filters?.category) {
+    query = query.eq('category', filters.category)
+  }
+  if (filters?.status) {
+    query = query.eq('status', filters.status)
+  }
+
+  const { data, error } = await query
+  return { data, error }
+}
+
+export const updateProduct = async (productId: string, updates: Record<string, unknown>) => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { data: null, error: new Error('Пользователь не авторизован') }
+  }
+
+  const { data, error } = await supabase
+    .from('products')
+    .update(updates)
+    .eq('id', productId)
+    .eq('seller_id', user.id) // Дополнительная проверка безопасности
+    .select()
+    .single()
+
+  return { data, error }
+}
+
+export const deleteProduct = async (productId: string) => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { data: null, error: new Error('Пользователь не авторизован') }
+  }
+
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('id', productId)
+    .eq('seller_id', user.id) // Дополнительная проверка безопасности
+
+  return { error }
+}
+
 export const getProduct = async (id: string) => {
   const { data, error } = await supabase
     .from('products')
@@ -287,31 +577,132 @@ export const getProduct = async (id: string) => {
   return { data, error }
 }
 
-export const createProduct = async (productData: Record<string, unknown>) => {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { data: null, error: new Error('Пользователь не авторизован') }
-  }
-
-  // Получаем компанию пользователя типа supplier
-  const { data: company } = await supabase
-    .from('companies')
-    .select('id')
-    .eq('owner_id', user.id)
-    .eq('type', 'supplier')
-    .or('type.eq.both')
-    .single()
-
+// Получение последних товаров для карусели
+export const getLatestProducts = async (limit: number = 8) => {
   const { data, error } = await supabase
     .from('products')
-    .insert({
+    .select(`
+      *,
+      profiles:seller_id(*),
+      companies:company_id(*)
+    `)
+    .eq('status', 'active')
+    .gt('stock_quantity', 0)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  return { data, error }
+}
+
+export const getLatestTenders = async (limit: number = 4) => {
+  const { data, error } = await supabase
+    .from('tenders')
+    .select(`
+      *,
+      profiles:client_id(*)
+    `)
+    .eq('status', 'published')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  return { data, error }
+}
+
+export const getLatestProjects = async (limit: number = 4) => {
+  const { data, error } = await supabase
+    .from('projects')
+    .select('*')
+    .in('status', ['planning', 'active'])
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  return { data, error }
+}
+
+export const getLatestCompanies = async (limit: number = 3) => {
+  const { data, error } = await supabase
+    .from('companies')
+    .select(`
+      *,
+      regions (
+        id,
+        name
+      )
+    `)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  return { data, error }
+}
+
+export const createProduct = async (productData: Record<string, unknown>) => {
+  console.log('🚀 createProduct вызвана с данными:', productData)
+  
+  try {
+    // Проверяем аутентификацию
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    console.log('👤 Пользователь:', user ? user.id : 'не авторизован')
+    
+    if (authError) {
+      console.error('❌ Ошибка авторизации:', authError)
+      return { data: null, error: authError }
+    }
+    
+    if (!user) {
+      const noUserError = new Error('Пользователь не авторизован')
+      console.error('❌ Пользователь не найден')
+      return { data: null, error: noUserError }
+    }
+    
+    // Получаем компанию пользователя
+    console.log('🏢 Ищем компанию пользователя...')
+    let company = null
+    
+    const { data: companyData, error: companyError } = await supabase
+      .from('companies')
+      .select('id, name, type')
+      .eq('owner_id', user.id)
+      .or('type.eq.supplier,type.eq.both')
+      .maybeSingle()
+    
+    console.log('🏢 Результат поиска компании:', { companyData, companyError })
+    
+    if (companyError) {
+      console.error('❌ Ошибка при поиске компании:', companyError)
+      // Не останавливаем процесс, продолжаем без компании
+    } else {
+      company = companyData
+    }
+    
+    // Подготавливаем данные для вставки
+    const insertData = {
       ...productData,
       seller_id: user.id,
       company_id: company?.id || null
-    })
-    .select()
-    .single()
-  return { data, error }
+      // created_at и updated_at должны создаваться автоматически
+    }
+    
+    console.log('📦 Вставляем товар с данными:', insertData)
+    
+    // Создаем товар
+    const { data, error } = await supabase
+      .from('products')
+      .insert(insertData)
+      .select()
+      .single()
+    
+    console.log('✅ Результат создания товара:', { data, error })
+    
+    if (error) {
+      console.error('❌ Ошибка при создании товара:', error)
+    }
+    
+    return { data, error }
+    
+  } catch (err) {
+    console.error('💥 Неожиданная ошибка в createProduct:', err)
+    return { data: null, error: err as Error }
+  }
 }
 
 // Project functions
@@ -354,54 +745,52 @@ export const getProjects = async () => {
 }
 
 export const getProject = async (id: string) => {
+  console.log('=== ФУНКЦИЯ getProject ===')
+  console.log('Ищем проект с ID:', id)
+  
+  // Сначала попробуем простой запрос без JOIN-ов
   const { data, error } = await supabase
     .from('projects')
-    .select(`
-      *,
-      project_materials (
-        id,
-        quantity,
-        status,
-        products (
-          id,
-          name,
-          price,
-          category,
-          profiles:seller_id(*)
-        )
-      ),
-      project_companies (
-        id,
-        role,
-        status,
-        companies (
-          id,
-          name,
-          type,
-          location,
-          profiles:owner_id(*)
-        )
-      )
-    `)
+    .select('*')
     .eq('id', id)
     .single()
+    
+  console.log('Результат поиска проекта:')
+  console.log('data:', data)
+  console.log('error:', error)
+    
   return { data, error }
 }
 
 export const createProject = async (projectData: Record<string, unknown>) => {
+  console.log('=== ФУНКЦИЯ createProject ===')
+  console.log('Входящие данные:', projectData)
+  
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
+    console.error('Пользователь не авторизован')
     return { data: null, error: new Error('Пользователь не авторизован') }
   }
+  
+  console.log('Пользователь авторизован:', user.id)
+  
+  const dataToInsert = {
+    ...projectData,
+    owner_id: user.id
+  }
+  
+  console.log('Данные для вставки в БД:', dataToInsert)
 
   const { data, error } = await supabase
     .from('projects')
-    .insert({
-      ...projectData,
-      owner_id: user.id
-    })
+    .insert(dataToInsert)
     .select()
     .single()
+    
+  console.log('Результат вставки в БД:')
+  console.log('data:', data)
+  console.log('error:', error)
+    
   return { data, error }
 }
 
@@ -624,18 +1013,18 @@ export const addToCart = async (productId: string, quantity: number = 1) => {
     .eq('product_id', productId)
     .single()
 
+  let result
   if (existingItem) {
     // Обновляем количество
-    const { data, error } = await supabase
+    result = await supabase
       .from('cart_items')
       .update({ quantity: existingItem.quantity + quantity })
       .eq('id', existingItem.id)
       .select()
       .single()
-    return { data, error }
   } else {
     // Добавляем новый товар
-    const { data, error } = await supabase
+    result = await supabase
       .from('cart_items')
       .insert({
         user_id: user.id,
@@ -644,8 +1033,14 @@ export const addToCart = async (productId: string, quantity: number = 1) => {
       })
       .select()
       .single()
-    return { data, error }
   }
+  
+  // Отправляем событие обновления корзины
+  if (!result.error && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('cartUpdated'))
+  }
+  
+  return result
 }
 
 export const getCartItems = async () => {
@@ -673,21 +1068,33 @@ export const updateCartQuantity = async (cartItemId: string, quantity: number) =
     return removeFromCart(cartItemId)
   }
 
-  const { data, error } = await supabase
+  const result = await supabase
     .from('cart_items')
     .update({ quantity })
     .eq('id', cartItemId)
     .select()
     .single()
-  return { data, error }
+  
+  // Отправляем событие обновления корзины
+  if (!result.error && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('cartUpdated'))
+  }
+  
+  return result
 }
 
 export const removeFromCart = async (cartItemId: string) => {
-  const { error } = await supabase
+  const result = await supabase
     .from('cart_items')
     .delete()
     .eq('id', cartItemId)
-  return { error }
+  
+  // Отправляем событие обновления корзины
+  if (!result.error && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('cartUpdated'))
+  }
+  
+  return result
 }
 
 export const clearCart = async () => {
@@ -696,11 +1103,17 @@ export const clearCart = async () => {
     return { error: new Error('Пользователь не авторизован') }
   }
 
-  const { error } = await supabase
+  const result = await supabase
     .from('cart_items')
     .delete()
     .eq('user_id', user.id)
-  return { error }
+  
+  // Отправляем событие обновления корзины
+  if (!result.error && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('cartUpdated'))
+  }
+  
+  return result
 }
 
 // Product reviews functions
@@ -883,6 +1296,71 @@ export const getUserOrders = async () => {
   return { data, error }
 }
 
+// Получение заказов для поставщика
+export const getSupplierOrders = async () => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { data: null, error: new Error('Пользователь не авторизован') }
+  }
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      buyer_info,
+      items
+    `)
+    .eq('seller_id', user.id)
+    .order('created_at', { ascending: false })
+  return { data, error }
+}
+
+// Получение статистики корзины для поставщика
+export const getSupplierCartStats = async () => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { data: null, error: new Error('Пользователь не авторизован') }
+  }
+
+  // Получаем товары пользователя
+  const { data: products } = await supabase
+    .from('products')
+    .select('id')
+    .eq('seller_id', user.id)
+
+  if (!products || products.length === 0) {
+    return { data: { total_in_carts: 0, unique_users: 0, items: [] }, error: null }
+  }
+
+  const productIds = products.map(p => p.id)
+
+  // Получаем статистику корзин
+  const { data: cartStats, error } = await supabase
+    .from('cart_items')
+    .select(`
+      *,
+      products:product_id(id, name, price),
+      profiles:user_id(name_first, name_last, email)
+    `)
+    .in('product_id', productIds)
+    .order('created_at', { ascending: false })
+
+  if (error) return { data: null, error }
+
+  // Группируем статистику
+  const totalInCarts = cartStats?.reduce((sum, item) => sum + item.quantity, 0) || 0
+  const uniqueUsers = new Set(cartStats?.map(item => item.user_id)).size || 0
+
+  return { 
+    data: { 
+      total_in_carts: totalInCarts, 
+      unique_users: uniqueUsers, 
+      items: cartStats || [] 
+    }, 
+    error: null 
+  }
+}
+
 export const updateOrderStatus = async (orderId: string, status: string) => {
   const { data, error } = await supabase
     .from('orders')
@@ -987,14 +1465,64 @@ export const updateCompany = async (companyId: string, updates: Record<string, u
     return { data: null, error: new Error('Пользователь не авторизован') }
   }
 
-  const { data, error } = await supabase
-    .from('companies')
-    .update(updates)
-    .eq('id', companyId)
-    .eq('owner_id', user.id)
-    .select()
-    .single()
-  return { data, error }
+  // Убираем updated_at из обновлений, если оно есть (может вызывать ошибки)
+  const { updated_at, ...cleanUpdates } = updates as any
+
+  try {
+    // Сначала пробуем прямой запрос с таймаутом
+    const directQuery = supabase
+      .from('companies')
+      .update(cleanUpdates)
+      .eq('id', companyId)
+      .eq('owner_id', user.id)
+      .select()
+      .single()
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout')), 5000)
+    )
+
+    try {
+      const { data, error } = await Promise.race([directQuery, timeoutPromise]) as any
+      
+      if (error) {
+        throw error
+      }
+      
+      console.log('✅ Direct company update successful')
+      return { data, error: null }
+    } catch (directError) {
+      console.log('⚠️ Direct company update failed, trying API route:', directError)
+      
+      // Fallback к API роуту
+      const session = await supabase.auth.getSession()
+      if (!session.data.session?.access_token) {
+        return { data: null, error: new Error('No session token') }
+      }
+
+      const response = await fetch(`/api/companies/${companyId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session.data.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(cleanUpdates),
+      })
+
+      if (!response.ok) {
+        console.error('API company update failed:', response.status)
+        const errorData = await response.json()
+        return { data: null, error: new Error(errorData.error || 'API request failed') }
+      }
+
+      const result = await response.json()
+      console.log('✅ API company update successful:', result.data)
+      return { data: result.data, error: null }
+    }
+  } catch (error) {
+    console.error('Error updating company:', error)
+    return { data: null, error: error as Error }
+  }
 }
 
 // Company Portfolio Functions
@@ -1204,6 +1732,38 @@ export const removeTeamMember = async (teamId: string) => {
   return { data, error }
 }
 
+export const leaveTeam = async (companyId: string, userId: string) => {
+  const { data, error } = await supabase
+    .from('company_team')
+    .update({ is_active: false })
+    .eq('company_id', companyId)
+    .eq('user_id', userId)
+    .eq('is_active', true)
+  return { data, error }
+}
+
+export const getUserCompanies = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('company_team')
+    .select(`
+      *,
+      companies (
+        id,
+        name,
+        logo_url,
+        type,
+        location,
+        regions (
+          name
+        )
+      )
+    `)
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .order('joined_date', { ascending: false })
+  return { data, error }
+}
+
 // Company Achievements Functions
 export const addCompanyAchievement = async (achievementData: {
   company_id: string
@@ -1242,17 +1802,62 @@ export const followCompany = async (companyId: string) => {
     return { data: null, error: new Error('Пользователь не авторизован') }
   }
 
-  const { data, error } = await supabase
-    .from('company_followers')
-    .insert([
-      {
+  try {
+    // Сначала пробуем прямой запрос с таймаутом
+    const directQuery = supabase
+      .from('company_followers')
+      .insert({
         company_id: companyId,
-        user_id: user.id
+        user_id: user.id,
+        followed_at: new Date().toISOString()
+      })
+      .select()
+      .single()
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout')), 5000)
+    )
+
+    try {
+      const { data, error } = await Promise.race([directQuery, timeoutPromise]) as any
+      
+      if (error) {
+        throw error
       }
-    ])
-    .select()
-    .single()
-  return { data, error }
+      
+      console.log('✅ Direct follow successful')
+      return { data, error: null }
+    } catch (directError) {
+      console.log('⚠️ Direct follow failed, trying API route:', directError)
+      
+      // Fallback к API роуту
+      const session = await supabase.auth.getSession()
+      if (!session.data.session?.access_token) {
+        return { data: null, error: new Error('No session token') }
+      }
+
+      const response = await fetch('/api/company-followers', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.data.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ company_id: companyId }),
+      })
+
+      if (!response.ok) {
+        console.error('API follow failed:', response.status)
+        return { data: null, error: new Error('API request failed') }
+      }
+
+      const result = await response.json()
+      console.log('✅ API follow successful:', result.data)
+      return { data: result.data, error: null }
+    }
+  } catch (error) {
+    console.error('Error following company:', error)
+    return { data: null, error: error as Error }
+  }
 }
 
 export const unfollowCompany = async (companyId: string) => {
@@ -1261,27 +1866,61 @@ export const unfollowCompany = async (companyId: string) => {
     return { data: null, error: new Error('Пользователь не авторизован') }
   }
 
-  const { data, error } = await supabase
-    .from('company_followers')
-    .delete()
-    .eq('company_id', companyId)
-    .eq('user_id', user.id)
-  return { data, error }
+  try {
+    // Сначала пробуем прямой запрос с таймаутом
+    const directQuery = supabase
+      .from('company_followers')
+      .delete()
+      .eq('company_id', companyId)
+      .eq('user_id', user.id)
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout')), 5000)
+    )
+
+    try {
+      const { error } = await Promise.race([directQuery, timeoutPromise]) as any
+      
+      if (error) {
+        throw error
+      }
+      
+      console.log('✅ Direct unfollow successful')
+      return { data: null, error: null }
+    } catch (directError) {
+      console.log('⚠️ Direct unfollow failed, trying API route:', directError)
+      
+      // Fallback к API роуту
+      const session = await supabase.auth.getSession()
+      if (!session.data.session?.access_token) {
+        return { data: null, error: new Error('No session token') }
+      }
+
+      const response = await fetch(`/api/company-followers?company_id=${companyId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.data.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        console.error('API unfollow failed:', response.status)
+        return { data: null, error: new Error('API request failed') }
+      }
+
+      console.log('✅ API unfollow successful')
+      return { data: null, error: null }
+    }
+  } catch (error) {
+    console.error('Error unfollowing company:', error)
+    return { data: null, error: error as Error }
+  }
 }
 
 export const getCompanyFollowers = async (companyId: string) => {
-  const { data, error } = await supabase
-    .from('company_followers')
-    .select(`
-      *,
-      profiles (
-        full_name,
-        avatar_url
-      )
-    `)
-    .eq('company_id', companyId)
-    .order('created_at', { ascending: false })
-  return { data, error }
+  // Временно отключено - таблица company_followers не существует
+  return { data: [], error: null }
 }
 
 export const isFollowingCompany = async (companyId: string) => {
@@ -1290,14 +1929,58 @@ export const isFollowingCompany = async (companyId: string) => {
     return { data: false, error: null }
   }
 
-  const { data, error } = await supabase
-    .from('company_followers')
-    .select('id')
-    .eq('company_id', companyId)
-    .eq('user_id', user.id)
-    .single()
+  try {
+    // Сначала пробуем прямой запрос с таймаутом
+    const directQuery = supabase
+      .from('company_followers')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('user_id', user.id)
+      .single()
 
-  return { data: !!data && !error, error }
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout')), 5000)
+    )
+
+    try {
+      const { data, error } = await Promise.race([directQuery, timeoutPromise]) as any
+      
+      if (error && error.code !== 'PGRST116') {
+        throw error
+      }
+      
+      console.log('✅ Direct follow check successful')
+      return { data: !!data, error: null }
+    } catch (directError) {
+      console.log('⚠️ Direct follow check failed, trying API route:', directError)
+      
+      // Fallback к API роуту
+      const session = await supabase.auth.getSession()
+      if (!session.data.session?.access_token) {
+        return { data: false, error: new Error('No session token') }
+      }
+
+      const response = await fetch(`/api/company-followers?company_id=${companyId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.data.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        console.error('API follow check failed:', response.status)
+        return { data: false, error: new Error('API request failed') }
+      }
+
+      const result = await response.json()
+      console.log('✅ API follow check successful:', result.isFollowing)
+      return { data: result.isFollowing, error: null }
+    }
+  } catch (error) {
+    console.error('Error in isFollowingCompany:', error)
+    return { data: false, error: error as Error }
+  }
 }
 
 // Company Updates Functions
@@ -1433,10 +2116,6 @@ export const globalSearch = async (query: string, filters?: {
   limit?: number
   offset?: number
 }) => {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { data: null, error: new Error('Пользователь не авторизован') }
-  }
 
   const searchQuery = query.trim()
   if (!searchQuery) {
@@ -1448,77 +2127,203 @@ export const globalSearch = async (query: string, filters?: {
   try {
     const results = { tenders: [] as any[], products: [] as any[], companies: [] as any[] }
 
-    // Поиск по тендерам
+    // Расширенный поиск по тендерам и проектам
     if (type === 'all' || type === 'tenders') {
-      const { data: tenders } = await supabase
-        .from('tenders')
-        .select(`
-          id,
-          title,
-          description,
-          status,
-          budget_min,
-          budget_max,
-          deadline,
-          city,
-          created_at,
-          companies!inner(name, logo_url)
-        `)
-        .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
-        .eq('status', 'published')
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1)
+      try {
+        // Поиск по тендерам
+        const { data: tenders, error: tendersError } = await supabase
+          .from('tenders')
+          .select(`
+            id,
+            title,
+            description,
+            status,
+            budget_min,
+            budget_max,
+            deadline,
+            location,
+            category,
+            created_at
+          `)
+          .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,category.ilike.%${searchQuery}%,location.ilike.%${searchQuery}%`)
+          .eq('status', 'published')
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1)
 
-      results.tenders = tenders || []
+        // Поиск по проектам
+        const { data: projects, error: projectsError } = await supabase
+          .from('projects')
+          .select(`
+            id,
+            name,
+            description,
+            status,
+            budget,
+            deadline,
+            location,
+            category,
+            created_at
+          `)
+          .or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,category.ilike.%${searchQuery}%,location.ilike.%${searchQuery}%`)
+          .in('status', ['planning', 'active'])
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1)
+
+        // Объединяем результаты тендеров и проектов
+        const allTenders = []
+        if (!tendersError && tenders) {
+          allTenders.push(...tenders)
+        }
+        if (!projectsError && projects && Array.isArray(projects)) {
+          // Добавляем метку для различения проектов от тендеров
+          const projectsWithType = projects.map((project: any) => ({
+            ...project,
+            title: project.name, // маппим name в title для единообразия
+            type: 'project',
+            budget_min: project.budget || 0,
+            budget_max: project.budget || 0
+          }))
+          allTenders.push(...projectsWithType)
+        }
+
+        results.tenders = allTenders
+
+        if (tendersError) {
+          console.error('Tenders search error:', tendersError)
+        }
+        if (projectsError) {
+          console.error('Projects search error:', projectsError)
+        }
+      } catch (error) {
+        console.error('Tenders/Projects search error:', error)
+        results.tenders = []
+      }
     }
 
-    // Поиск по товарам
+    // Расширенный поиск по товарам
     if (type === 'all' || type === 'products') {
-      const { data: products } = await supabase
-        .from('products')
-        .select(`
-          id,
-          name,
-          description,
-          price,
-          image_url,
-          category,
-          in_stock,
-          created_at,
-          companies!inner(name, logo_url)
-        `)
-        .or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
-        .eq('in_stock', true)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1)
+      try {
+        const { data: products, error: productsError } = await supabase
+          .from('products')
+          .select(`
+            id,
+            name,
+            description,
+            price,
+            category,
+            unit,
+            images,
+            specifications,
+            stock_quantity,
+            status,
+            created_at
+          `)
+          .or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,category.ilike.%${searchQuery}%`)
+          .eq('status', 'active')
+          .gt('stock_quantity', 0)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1)
 
-      results.products = products || []
+        if (!productsError) {
+          results.products = products || []
+          console.log('Products found:', products?.length || 0)
+        } else {
+          console.error('Products search error:', productsError)
+          results.products = []
+        }
+      } catch (error) {
+        console.error('Products search error:', error)
+        results.products = []
+      }
     }
 
-    // Поиск по компаниям
+    // Расширенный поиск по компаниям
     if (type === 'all' || type === 'companies') {
-      const { data: companies } = await supabase
-        .from('companies')
-        .select(`
-          id,
-          name,
-          description,
-          industry,
-          city,
-          logo_url,
-          cover_image,
-          verified,
-          rating,
-          reviews_count,
-          type,
-          created_at
-        `)
-        .or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,industry.ilike.%${searchQuery}%`)
-        .order('rating', { ascending: false })
-        .range(offset, offset + limit - 1)
+      try {
+        const { data: companies, error: companiesError } = await supabase
+          .from('companies')
+          .select(`
+            id,
+            name,
+            description,
+            type,
+            website,
+            logo_url,
+            address,
+            location,
+            phone,
+            email,
+            created_at
+          `)
+          .or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,type.ilike.%${searchQuery}%,location.ilike.%${searchQuery}%,address.ilike.%${searchQuery}%`)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1)
 
-      results.companies = companies || []
+        if (!companiesError) {
+          results.companies = companies || []
+        } else {
+          console.error('Companies search error:', companiesError)
+          results.companies = []
+        }
+      } catch (error) {
+        console.error('Companies search error:', error)
+        results.companies = []
+      }
     }
+
+    // Сортируем результаты по релевантности
+    const sortByRelevance = (items: any[], searchTerm: string) => {
+      return items.sort((a, b) => {
+        const getRelevanceScore = (item: any) => {
+          let score = 0
+          const term = searchTerm.toLowerCase()
+          
+          // Проверяем точное совпадение в названии (высший приоритет)
+          if (item.name?.toLowerCase() === term || item.title?.toLowerCase() === term) {
+            score += 100
+          }
+          
+          // Проверяем начало названия
+          if (item.name?.toLowerCase().startsWith(term) || item.title?.toLowerCase().startsWith(term)) {
+            score += 50
+          }
+          
+          // Проверяем вхождение в название
+          if (item.name?.toLowerCase().includes(term) || item.title?.toLowerCase().includes(term)) {
+            score += 25
+          }
+          
+          // Проверяем категорию/отрасль
+          if (item.category?.toLowerCase().includes(term) || item.industry?.toLowerCase().includes(term)) {
+            score += 15
+          }
+          
+          // Проверяем описание
+          if (item.description?.toLowerCase().includes(term)) {
+            score += 10
+          }
+          
+          // Бонус за рейтинг (для компаний)
+          if (item.rating) {
+            score += item.rating * 2
+          }
+          
+          // Бонус за верификацию
+          if (item.verified) {
+            score += 5
+          }
+          
+          return score
+        }
+        
+        return getRelevanceScore(b) - getRelevanceScore(a)
+      })
+    }
+
+    // Применяем сортировку по релевантности
+    results.tenders = sortByRelevance(results.tenders, searchQuery)
+    results.products = sortByRelevance(results.products, searchQuery)
+    results.companies = sortByRelevance(results.companies, searchQuery)
 
     return { data: results, error: null }
   } catch (error) {
@@ -1528,11 +2333,6 @@ export const globalSearch = async (query: string, filters?: {
 }
 
 export const getSearchSuggestions = async (query: string) => {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { data: [], error: new Error('Пользователь не авторизован') }
-  }
-
   const searchQuery = query.trim()
   if (!searchQuery || searchQuery.length < 2) {
     return { data: [], error: null }
@@ -1541,55 +2341,37 @@ export const getSearchSuggestions = async (query: string) => {
   try {
     const suggestions: string[] = []
 
-    // Получаем популярные запросы из тендеров
-    const { data: tenderSuggestions } = await supabase
-      .from('tenders')
-      .select('title')
-      .ilike('title', `%${searchQuery}%`)
-      .eq('status', 'published')
-      .limit(5)
-
-    // Получаем популярные запросы из товаров
-    const { data: productSuggestions } = await supabase
-      .from('products')
-      .select('name')
-      .ilike('name', `%${searchQuery}%`)
-      .eq('in_stock', true)
-      .limit(5)
-
-    // Получаем популярные запросы из компаний
-    const { data: companySuggestions } = await supabase
-      .from('companies')
-      .select('name')
-      .ilike('name', `%${searchQuery}%`)
-      .limit(5)
-
-    // Формируем уникальные предложения
-    if (tenderSuggestions) {
-      tenderSuggestions.forEach(item => {
-        if (!suggestions.includes(item.title)) {
-          suggestions.push(item.title)
-        }
+    // Простые предложения на основе популярных строительных терминов
+    const buildingTerms = [
+      'строительство', 'ремонт', 'отделка', 'проектирование', 'архитектура',
+      'кирпич', 'бетон', 'арматура', 'утеплитель', 'кровля', 'фундамент',
+      'электрика', 'сантехника', 'отопление', 'вентиляция', 'кондиционирование',
+      'дизайн интерьера', 'ландшафтный дизайн', 'благоустройство',
+      'строительные материалы', 'металлоконструкции', 'отделочные работы',
+      'строительство домов', 'ремонт квартир', 'коммерческое строительство'
+    ]
+    
+    // Фильтруем термины, которые содержат поисковый запрос
+    const matchingTerms = buildingTerms.filter(term => 
+      term.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    
+    suggestions.push(...matchingTerms.slice(0, 8))
+    
+    // Если нет точных совпадений, добавляем похожие термины
+    if (suggestions.length < 5) {
+      const similarTerms = buildingTerms.filter(term => {
+        const words = searchQuery.toLowerCase().split(' ')
+        return words.some(word => word.length > 2 && term.toLowerCase().includes(word))
       })
+      
+      suggestions.push(...similarTerms.slice(0, 5 - suggestions.length))
     }
-
-    if (productSuggestions) {
-      productSuggestions.forEach(item => {
-        if (!suggestions.includes(item.name)) {
-          suggestions.push(item.name)
-        }
-      })
-    }
-
-    if (companySuggestions) {
-      companySuggestions.forEach(item => {
-        if (!suggestions.includes(item.name)) {
-          suggestions.push(item.name)
-        }
-      })
-    }
-
-    return { data: suggestions.slice(0, 8), error: null }
+    
+    // Убираем дубликаты и ограничиваем количество
+    const uniqueSuggestions = [...new Set(suggestions)].slice(0, 8)
+    
+    return { data: uniqueSuggestions, error: null }
   } catch (error) {
     console.error('Search suggestions error:', error)
     return { data: [], error }
@@ -1597,10 +2379,6 @@ export const getSearchSuggestions = async (query: string) => {
 }
 
 export const getPopularSearches = async () => {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { data: [], error: new Error('Пользователь не авторизован') }
-  }
 
   try {
     // Для демонстрации возвращаем популярные категории и запросы
@@ -1660,3 +2438,196 @@ export const getSearchHistory = async () => {
     return { data: [], error }
   }
 }
+
+export const checkProjectsTableStructure = async () => {
+  console.log('=== ПРОВЕРКА СТРУКТУРЫ ТАБЛИЦЫ PROJECTS ===')
+  
+  // Попробуем создать тестовый проект с минимальными данными
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    console.error('Пользователь не авторизован')
+    return
+  }
+  
+  const testData = {
+    name: 'Тестовый проект',
+    description: 'Тест',
+    category: 'Тест',
+    location: 'Тест',
+    status: 'planning',
+    owner_id: user.id
+  }
+  
+  console.log('Пробуем создать тестовый проект с минимальными данными:', testData)
+  
+  const { data, error } = await supabase
+    .from('projects')
+    .insert(testData)
+    .select()
+    .single()
+    
+  console.log('Результат создания тестового проекта:')
+  console.log('data:', data)
+  console.log('error:', error)
+  
+  if (error) {
+    console.error('Ошибка при создании тестового проекта:', error)
+    
+    // Если ошибка связана с отсутствующими полями, попробуем еще более простой вариант
+    if (error.message.includes('column') && error.message.includes('does not exist')) {
+      console.log('Пробуем создать проект только с обязательными полями...')
+      
+      const minimalData = {
+        name: 'Минимальный тест',
+        description: 'Тест',
+        owner_id: user.id
+      }
+      
+      const { data: data2, error: error2 } = await supabase
+        .from('projects')
+        .insert(minimalData)
+        .select()
+        .single()
+        
+      console.log('Результат создания минимального проекта:')
+      console.log('data:', data2)
+      console.log('error:', error2)
+    }
+  } else {
+    console.log('✅ Тестовый проект создан успешно!')
+    
+    // Удаляем тестовый проект
+    if (data?.id) {
+      await supabase.from('projects').delete().eq('id', data.id)
+      console.log('Тестовый проект удален')
+    }
+  }
+}
+
+export const getAllProjects = async () => {
+  console.log('=== ФУНКЦИЯ getAllProjects ===')
+  
+  const { data, error } = await supabase
+    .from('projects')
+    .select(`
+      id,
+      name,
+      description,
+      budget,
+      location,
+      owner_id,
+      created_at,
+      profiles!projects_owner_id_fkey(
+        email,
+        first_name,
+        last_name
+      )
+    `)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    
+  console.log('Все проекты в базе данных:')
+  console.log('data:', data)
+  console.log('error:', error)
+  console.log('Количество проектов:', data?.length || 0)
+  
+  if (error) {
+    console.error('Ошибка при получении проектов:', error)
+    return { data: [], error }
+  }
+  
+  // Нормализуем данные для соответствия интерфейсу Project
+  const normalizedData = data?.map(project => ({
+    id: project.id,
+    title: project.name, // Преобразуем name в title
+    description: project.description || '',
+    budget: project.budget || 0,
+    location: project.location || '',
+    owner_name: project.profiles && project.profiles.length > 0 ? `${project.profiles[0].first_name || ''} ${project.profiles[0].last_name || ''}`.trim() : '',
+    owner_email: project.profiles && project.profiles.length > 0 ? project.profiles[0].email || '' : ''
+  })) || []
+    
+  return { data: normalizedData, error }
+}
+
+// Partnerships Functions
+export const getFollowedCompanies = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('company_followers')
+      .select(`
+        company_id,
+        followed_at,
+        companies!inner(
+          id,
+          name,
+          description,
+          industry,
+          type,
+          location,
+          email,
+          website,
+          logo_url,
+          owner_id
+        )
+      `)
+      .eq('user_id', userId)
+      .order('followed_at', { ascending: false })
+    
+    if (error) {
+      console.error('Error fetching followed companies:', error)
+      return { data: [], error }
+    }
+    
+    // Получаем email владельцев компаний отдельным запросом
+    const companies = data || []
+    const companiesWithOwnerEmail = await Promise.all(
+      companies.map(async (item: any) => {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', item.companies.owner_id)
+          .single()
+        
+        return {
+          ...item.companies,
+          owner_email: profileData?.email || null
+        }
+      })
+    )
+    
+    return { data: companiesWithOwnerEmail, error: null }
+  } catch (error) {
+    console.error('Error in getFollowedCompanies:', error)
+    return { data: [], error: error as Error }
+  }
+}
+
+export const getUserProjects = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('projects')
+    .select(`
+      id,
+      title,
+      name,
+      description,
+      budget,
+      budget_min,
+      budget_max,
+      location,
+      status,
+      created_at
+    `)
+    .eq('owner_id', userId)
+    .order('created_at', { ascending: false })
+    
+  // Нормализуем данные - используем title или name как заголовок
+  const normalizedData = data?.map(project => ({
+    ...project,
+    title: project.title || project.name,
+    budget: project.budget || project.budget_max || project.budget_min || 0
+  }))
+    
+  return { data: normalizedData, error }
+}
+

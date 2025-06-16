@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
+import { formatPrice } from '@/utils/formatPrice'
 
 interface Product {
   id: string
@@ -103,13 +104,7 @@ export default function ManageProductsPage() {
     }
   }
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ru-RU', {
-      style: 'currency',
-      currency: 'RUB',
-      minimumFractionDigits: 0
-    }).format(price)
-  }
+  // Используем импортированную функцию formatPrice из utils
 
   const formatDate = (dateString: string) => {
     return new Intl.DateTimeFormat('ru-RU', {

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createProject } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import NoSSR from '@/components/NoSSR'
 import { 
   ArrowLeftIcon,
   PlusIcon,
@@ -14,9 +15,9 @@ interface ProjectFormData {
   name: string
   description: string
   location: string
+  region_id: string
   budget: number | null
   deadline: string
-  status: 'planning' | 'active' | 'completed' | 'on_hold'
   category: string
 }
 
@@ -46,14 +47,38 @@ export default function CreateProjectPage() {
     name: '',
     description: '',
     location: '',
+    region_id: '',
     budget: null,
     deadline: '',
-    status: 'planning',
     category: ''
   })
   
   const [materials, setMaterials] = useState<MaterialItem[]>([])
   const [companyRequirements, setCompanyRequirements] = useState<CompanyRequirement[]>([])
+  const [regions, setRegions] = useState<{id: string, name: string}[]>([])
+  
+  // Загрузка регионов при монтировании компонента
+  useEffect(() => {
+    const loadRegions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('regions')
+          .select('id, name')
+          .order('name')
+        
+        if (error) {
+          console.error('Ошибка загрузки регионов:', error)
+          return
+        }
+        
+        setRegions(data || [])
+      } catch (error) {
+        console.error('Ошибка при загрузке регионов:', error)
+      }
+    }
+    
+    loadRegions()
+  }, [])
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -76,7 +101,10 @@ export default function CreateProjectPage() {
   
   const updateMaterial = (id: string, field: keyof MaterialItem, value: any) => {
     setMaterials(materials.map(material => 
-      material.id === id ? { ...material, [field]: value } : material
+      material.id === id ? { 
+        ...material, 
+        [field]: (field === 'quantity' || field === 'estimated_price') ? (value || 0) : value 
+      } : material
     ))
   }
   
@@ -97,7 +125,10 @@ export default function CreateProjectPage() {
   
   const updateCompanyRequirement = (id: string, field: keyof CompanyRequirement, value: any) => {
     setCompanyRequirements(companyRequirements.map(req => 
-      req.id === id ? { ...req, [field]: value } : req
+      req.id === id ? { 
+        ...req, 
+        [field]: (field === 'budget_min' || field === 'budget_max') ? (value || 0) : value 
+      } : req
     ))
   }
   
@@ -111,21 +142,129 @@ export default function CreateProjectPage() {
     setError(null)
     
     try {
-      const projectData = {
+      console.log('=== СОЗДАНИЕ ПРОЕКТА ===')
+      console.log('Исходные данные формы:', formData)
+      
+      // Очищаем пустые строки для UUID полей и числовых полей
+      const cleanedFormData = {
         ...formData,
-        materials_list: materials,
-        company_requirements: companyRequirements
+        region_id: formData.region_id || null,
+        budget: formData.budget || null,
+        deadline: formData.deadline || null // Добавляем очистку для даты
       }
       
-      const { data, error } = await createProject(projectData)
+      console.log('Очищенные данные формы:', cleanedFormData)
       
-      if (error) {
-        throw error
+      // Очищаем данные материалов
+      const cleanedMaterials = materials.map(material => ({
+        ...material,
+        quantity: material.quantity || 0,
+        estimated_price: material.estimated_price || 0
+      }))
+      
+      console.log('Очищенные материалы:', cleanedMaterials)
+      
+      // Очищаем данные требований к компаниям
+      const cleanedCompanyRequirements = companyRequirements.map(req => ({
+        ...req,
+        budget_min: req.budget_min || 0,
+        budget_max: req.budget_max || 0
+      }))
+      
+      console.log('Очищенные требования к компаниям:', cleanedCompanyRequirements)
+      
+      const projectData = {
+        ...cleanedFormData,
+        materials_list: cleanedMaterials,
+        company_requirements: cleanedCompanyRequirements
       }
       
-      router.push(`/projects/${data.id}`)
+      console.log('Финальные данные для отправки:', projectData)
+      
+      // Получаем токен авторизации
+      console.log('🔑 Начинаем получение токена...')
+      let session, token
+      try {
+        console.log('🔍 Вызываем supabase.auth.getSession()...')
+        
+        // Добавляем таймаут для getSession
+        const sessionPromise = supabase.auth.getSession()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session timeout')), 10000)
+        )
+        
+        const sessionResult = await Promise.race([sessionPromise, timeoutPromise]) as any
+        console.log('🔍 getSession завершен, обрабатываем результат...')
+        
+        session = sessionResult.data?.session
+        token = session?.access_token
+        
+        console.log('🔑 Токен получен:', !!token)
+        console.log('👤 Пользователь из сессии:', session?.user?.email)
+        
+        if (!session) {
+          console.log('⚠️ Сессия не найдена, но продолжаем без токена')
+        }
+      } catch (tokenError) {
+        console.error('❌ Ошибка получения токена:', tokenError)
+        console.log('⚠️ Продолжаем без токена авторизации')
+        session = null
+        token = null
+      }
+
+      // Используем API route вместо прямого обращения к Supabase
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+        console.log('🔐 Заголовок авторизации установлен')
+      } else {
+        console.log('⚠️ Токен отсутствует, отправляем без авторизации')
+      }
+
+      console.log('🌐 Отправляем запрос к API...')
+      console.log('📋 Headers:', headers)
+      
+      let response
+      try {
+        response = await fetch('/api/projects', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(projectData)
+        })
+        console.log('📡 Fetch завершен успешно')
+      } catch (fetchError) {
+        console.error('❌ Ошибка fetch:', fetchError)
+        throw new Error(`Ошибка сетевого запроса: ${fetchError}`)
+      }
+
+      console.log('📡 Получен ответ от API:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.log('❌ Ошибка от API:', errorData)
+        throw new Error(errorData.error || 'Ошибка при создании проекта')
+      }
+
+      const result = await response.json()
+      console.log('✅ Проект создан успешно:', result)
+      
+      // Получаем ID созданного проекта
+      const projectId = result.data?.[0]?.id || result.data?.id
+      if (projectId) {
+        router.push(`/projects/${projectId}`)
+      } else {
+        router.push('/projects')
+      }
     } catch (err: unknown) {
       const error = err as Error
+      console.error('Полная ошибка при создании проекта:', err)
       setError(error.message || 'Произошла ошибка при создании проекта')
     } finally {
       setIsLoading(false)
@@ -134,11 +273,14 @@ export default function CreateProjectPage() {
   
   const categories = [
     'Строительство домов',
-    'Ремонт квартир',
+    'Ремонт квартир', 
     'Коммерческое строительство',
     'Ландшафтный дизайн',
     'Дорожные работы',
     'Инженерные системы',
+    'Промышленность',
+    'Коммерческая недвижимость',
+    'Частное строительство',
     'Другое'
   ]
   
@@ -220,18 +362,36 @@ export default function CreateProjectPage() {
         </div>
         
         <div>
+          <label htmlFor="region_id" className="block text-sm font-medium text-gray-700">
+            Регион *
+          </label>
+          <select
+            id="region_id"
+            name="region_id"
+            required
+            value={formData.region_id}
+            onChange={handleInputChange}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Выберите регион</option>
+            {regions.map(region => (
+              <option key={region.id} value={region.id}>{region.name}</option>
+            ))}
+          </select>
+        </div>
+        
+        <div>
           <label htmlFor="location" className="block text-sm font-medium text-gray-700">
-            Местоположение *
+            Адрес
           </label>
           <input
             type="text"
             id="location"
             name="location"
-            required
             value={formData.location}
             onChange={handleInputChange}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Москва, МО, Подольск"
+            placeholder="Укажите адрес проекта"
           />
         </div>
         
@@ -454,96 +614,105 @@ export default function CreateProjectPage() {
   )
   
   return (
-    <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <Link
-          href="/projects"
-          className="flex items-center text-blue-600 hover:text-blue-800 mb-4"
-        >
-          <ArrowLeftIcon className="h-5 w-5 mr-2" />
-          Назад к проектам
-        </Link>
-        
-        <h1 className="text-3xl font-bold text-gray-900">Создание проекта</h1>
-        
-        {/* Прогресс */}
-        <div className="mt-6">
-          <div className="flex items-center">
-            {[1, 2, 3].map((step) => (
-              <div key={step} className="flex items-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  step <= currentStep ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
-                }`}>
-                  {step}
-                </div>
-                {step < 3 && (
-                  <div className={`w-12 h-1 ${
-                    step < currentStep ? 'bg-blue-600' : 'bg-gray-200'
-                  }`} />
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between mt-2 text-sm">
-            <span className={currentStep >= 1 ? 'text-blue-600' : 'text-gray-500'}>
-              Основная информация
-            </span>
-            <span className={currentStep >= 2 ? 'text-blue-600' : 'text-gray-500'}>
-              Материалы
-            </span>
-            <span className={currentStep >= 3 ? 'text-blue-600' : 'text-gray-500'}>
-              Компании
-            </span>
-          </div>
+    <NoSSR fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="glass-card rounded-2xl p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Загрузка формы создания проекта...</p>
         </div>
       </div>
-      
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border p-8">
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            {error}
-          </div>
-        )}
-        
-        {currentStep === 1 && renderStep1()}
-        {currentStep === 2 && renderStep2()}
-        {currentStep === 3 && renderStep3()}
-        
-        <div className="mt-8 flex justify-between">
-          <div>
-            {currentStep > 1 && (
-              <button
-                type="button"
-                onClick={() => setCurrentStep(currentStep - 1)}
-                className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200"
-              >
-                Назад
-              </button>
-            )}
-          </div>
+    }>
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <Link
+            href="/projects"
+            className="flex items-center text-blue-600 hover:text-blue-800 mb-4"
+          >
+            <ArrowLeftIcon className="h-5 w-5 mr-2" />
+            Назад к проектам
+          </Link>
           
-          <div className="flex space-x-3">
-            {currentStep < 3 ? (
-              <button
-                type="button"
-                onClick={() => setCurrentStep(currentStep + 1)}
-                disabled={currentStep === 1 && (!formData.name || !formData.description || !formData.category || !formData.location)}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Далее
-              </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? 'Создание...' : 'Создать проект'}
-              </button>
-            )}
+          <h1 className="text-3xl font-bold text-gray-900">Создание проекта</h1>
+          
+          {/* Прогресс */}
+          <div className="mt-6">
+            <div className="flex items-center">
+              {[1, 2, 3].map((step) => (
+                <div key={step} className="flex items-center">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    step <= currentStep ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    {step}
+                  </div>
+                  {step < 3 && (
+                    <div className={`w-12 h-1 ${
+                      step < currentStep ? 'bg-blue-600' : 'bg-gray-200'
+                    }`} />
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between mt-2 text-sm">
+              <span className={currentStep >= 1 ? 'text-blue-600' : 'text-gray-500'}>
+                Основная информация
+              </span>
+              <span className={currentStep >= 2 ? 'text-blue-600' : 'text-gray-500'}>
+                Материалы
+              </span>
+              <span className={currentStep >= 3 ? 'text-blue-600' : 'text-gray-500'}>
+                Компании
+              </span>
+            </div>
           </div>
         </div>
-      </form>
-    </main>
+        
+        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border p-8">
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              {error}
+            </div>
+          )}
+          
+          {currentStep === 1 && renderStep1()}
+          {currentStep === 2 && renderStep2()}
+          {currentStep === 3 && renderStep3()}
+          
+          <div className="mt-8 flex justify-between">
+            <div>
+              {currentStep > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(currentStep - 1)}
+                  className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200"
+                >
+                  Назад
+                </button>
+              )}
+            </div>
+            
+            <div className="flex space-x-3">
+              {currentStep < 3 ? (
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(currentStep + 1)}
+                  disabled={currentStep === 1 && (!formData.name || !formData.description || !formData.category || !formData.location)}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Далее
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? 'Создание...' : 'Создать проект'}
+                </button>
+              )}
+            </div>
+          </div>
+        </form>
+      </main>
+    </NoSSR>
   )
-} 
+}

@@ -17,6 +17,8 @@ interface RecentActivityProps {
   items: ActivityItem[]
   title: string
   className?: string
+  viewAllHref?: string
+  viewAllText?: string
 }
 
 const getIcon = (type: string) => {
@@ -41,18 +43,18 @@ const getStatusColor = (status?: string) => {
     case 'active':
     case 'published':
     case 'approved':
-      return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+      return 'bg-green-100 text-green-800'
     case 'pending':
     case 'draft':
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
+      return 'bg-yellow-100 text-yellow-800'
     case 'completed':
     case 'closed':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
+      return 'bg-blue-100 text-blue-800'
     case 'rejected':
     case 'cancelled':
-      return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+      return 'bg-red-100 text-red-800'
     default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+      return 'bg-gray-100 text-gray-800'
   }
 }
 
@@ -68,31 +70,41 @@ const formatDate = (dateString: string) => {
   return date.toLocaleDateString('ru-RU')
 }
 
-export default function RecentActivity({ items, title, className = '' }: RecentActivityProps) {
+export default function RecentActivity({ items, title, className = '', viewAllHref, viewAllText = 'Просмотреть все' }: RecentActivityProps) {
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border p-6 ${className}`}>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{title}</h3>
+    <div className={`bg-white rounded-lg shadow-sm border p-6 ${className}`}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        {viewAllHref && (
+          <Link 
+            href={viewAllHref}
+            className="text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
+          >
+            {viewAllText} →
+          </Link>
+        )}
+      </div>
       
       {items.length === 0 ? (
         <div className="text-center py-8">
           <Clock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">Нет недавней активности</p>
+          <p className="text-gray-500">Нет недавней активности</p>
         </div>
       ) : (
         <div className="space-y-4">
           {items.map((item) => {
             const Icon = getIcon(item.type)
             const content = (
-              <div className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200">
-                <div className="w-8 h-8 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Icon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <div className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200">
+                <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Icon className="w-4 h-4 text-blue-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                  <p className="text-sm font-medium text-gray-900 truncate">
                     {item.title}
                   </p>
                   {item.description && (
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                    <p className="text-sm text-gray-500 mt-1 line-clamp-2">
                       {item.description}
                     </p>
                   )}
@@ -102,7 +114,7 @@ export default function RecentActivity({ items, title, className = '' }: RecentA
                         {item.status}
                       </span>
                     )}
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                    <span className="text-xs text-gray-500">
                       {formatDate(item.created_at)}
                     </span>
                   </div>

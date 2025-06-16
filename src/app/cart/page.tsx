@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { getCartItems, updateCartQuantity, removeFromCart, clearCart } from '@/lib/supabase'
+import { getCartItems, updateCartQuantity, removeFromCart, clearCart, getLatestProducts } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 interface CartItem {
@@ -23,8 +23,20 @@ interface CartItem {
   }
 }
 
+interface Product {
+  id: string
+  name: string
+  price: number
+  image_url?: string
+  stock_quantity: number
+  companies?: {
+    name: string
+  }
+}
+
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const [latestProducts, setLatestProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -32,6 +44,7 @@ export default function CartPage() {
 
   useEffect(() => {
     loadCartItems()
+    loadLatestProducts()
   }, [])
 
   const loadCartItems = async () => {
@@ -46,6 +59,19 @@ export default function CartPage() {
       setError('Ошибка загрузки корзины')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadLatestProducts = async () => {
+    try {
+      const { data, error } = await getLatestProducts(12)
+      if (error) {
+        console.error('Error loading latest products:', error)
+      } else {
+        setLatestProducts(data || [])
+      }
+    } catch (error) {
+      console.error('Error loading latest products:', error)
     }
   }
 
@@ -143,7 +169,7 @@ export default function CartPage() {
 
   if (cartItems.length === 0) {
     return (
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
+      <main className="container mx-auto px-4 py-8 max-w-6xl">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Корзина покупок</h1>
         
         <div className="text-center py-12">
@@ -161,6 +187,58 @@ export default function CartPage() {
             Перейти к покупкам
           </Link>
         </div>
+
+        {/* Карусель последних товаров */}
+        {latestProducts.length > 0 && (
+          <div className="mt-16">
+            <h3 className="text-2xl font-semibold text-gray-900 mb-8 text-center">Последние товары</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {latestProducts.map((product) => (
+                <Link
+                  key={product.id}
+                  href={`/products/${product.id}`}
+                  className="group bg-white rounded-lg shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden"
+                >
+                  <div className="relative aspect-square bg-gray-100">
+                    {product.image_url ? (
+                      <Image
+                        src={product.image_url}
+                        alt={product.name}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="p-4">
+                    <h4 className="font-medium text-gray-900 mb-1 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                      {product.name}
+                    </h4>
+                    {product.companies?.name && (
+                      <p className="text-sm text-gray-500 mb-2">
+                        {product.companies.name}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg font-semibold text-blue-600">
+                        {formatPrice(product.price)}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        В наличии: {product.stock_quantity}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
     )
   }

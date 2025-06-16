@@ -59,31 +59,7 @@ export default function ProjectsPage() {
       
       const { data, error } = await supabase
         .from('projects')
-        .select(`
-          *,
-          project_materials (
-            id,
-            quantity,
-            status,
-            products (
-              id,
-              name,
-              price,
-              category
-            )
-          ),
-          project_companies (
-            id,
-            role,
-            status,
-            companies (
-              id,
-              name,
-              type,
-              location
-            )
-          )
-        `)
+        .select('*')
         .eq('owner_id', userId)
         .order('created_at', { ascending: false })
 
@@ -164,7 +140,7 @@ export default function ProjectsPage() {
         {/* Заголовок */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Мои проекты</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Ваши проекты и тендеры</h1>
             <p className="mt-2 text-gray-600">
               Управляйте проектами, материалами и компаниями
             </p>
@@ -218,115 +194,51 @@ export default function ProjectsPage() {
                   </div>
                 </div>
 
-                {/* Материалы и компании */}
+                {/* Дополнительная информация */}
                 <div className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Материалы */}
+                    {/* Категория и бюджет */}
                     <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-medium text-gray-900 flex items-center">
-                          <ShoppingBagIcon className="h-4 w-4 mr-2" />
-                          Материалы
-                        </h3>
-                        <Link
-                          href={`/projects/${project.id}/materials`}
-                          className="text-blue-600 hover:text-blue-800 text-sm"
-                        >
-                          Управлять
-                        </Link>
+                      <h3 className="text-sm font-medium text-gray-900 mb-3">Детали проекта</h3>
+                      <div className="space-y-2">
+                        {project.category && (
+                          <div className="flex items-center text-sm text-gray-600">
+                            <span className="font-medium mr-2">Категория:</span>
+                            {project.category}
+                          </div>
+                        )}
+                        {project.budget && (
+                          <div className="flex items-center text-sm text-gray-600">
+                            <span className="font-medium mr-2">Бюджет:</span>
+                            {project.budget.toLocaleString()} ₽
+                          </div>
+                        )}
+                        {project.deadline && (
+                          <div className="flex items-center text-sm text-gray-600">
+                            <span className="font-medium mr-2">Срок:</span>
+                            {new Date(project.deadline).toLocaleDateString('ru-RU')}
+                          </div>
+                        )}
                       </div>
-                      
-                      {project.project_materials && project.project_materials.length > 0 ? (
-                        <div className="space-y-2">
-                          {project.project_materials.slice(0, 3).map((material: any) => (
-                            <div key={material.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                              <div>
-                                <p className="text-sm font-medium">{material.products?.name}</p>
-                                <p className="text-xs text-gray-500">
-                                  {material.quantity} шт. • {material.products?.price?.toLocaleString()} ₽/шт.
-                                </p>
-                              </div>
-                              <span className={`px-2 py-1 text-xs rounded ${
-                                material.status === 'ordered' ? 'bg-blue-100 text-blue-800' :
-                                material.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {material.status === 'ordered' ? 'Заказан' :
-                                 material.status === 'delivered' ? 'Доставлен' : 'Планируется'}
-                              </span>
-                            </div>
-                          ))}
-                          {project.project_materials.length > 3 && (
-                            <p className="text-xs text-gray-500 text-center">
-                              +{project.project_materials.length - 3} материалов
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="text-center py-4">
-                          <p className="text-sm text-gray-500 mb-2">Материалы не добавлены</p>
-                          <Link
-                            href={`/projects/${project.id}/materials/add`}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
-                          >
-                            Добавить материалы
-                          </Link>
-                        </div>
-                      )}
                     </div>
 
-                    {/* Компании */}
+                    {/* Материалы и требования */}
                     <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-medium text-gray-900 flex items-center">
-                          <BuildingOfficeIcon className="h-4 w-4 mr-2" />
-                          Компании
-                        </h3>
-                        <Link
-                          href={`/projects/${project.id}/companies`}
-                          className="text-blue-600 hover:text-blue-800 text-sm"
-                        >
-                          Управлять
-                        </Link>
+                      <h3 className="text-sm font-medium text-gray-900 mb-3">Планирование</h3>
+                      <div className="space-y-2">
+                        {project.materials_list && project.materials_list.length > 0 && (
+                          <div className="flex items-center text-sm text-gray-600">
+                            <ShoppingBagIcon className="h-4 w-4 mr-2" />
+                            {project.materials_list.length} материалов
+                          </div>
+                        )}
+                        {project.company_requirements && project.company_requirements.length > 0 && (
+                          <div className="flex items-center text-sm text-gray-600">
+                            <BuildingOfficeIcon className="h-4 w-4 mr-2" />
+                            {project.company_requirements.length} требований к компаниям
+                          </div>
+                        )}
                       </div>
-                      
-                      {project.project_companies && project.project_companies.length > 0 ? (
-                        <div className="space-y-2">
-                          {project.project_companies.slice(0, 3).map((company: any) => (
-                            <div key={company.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                              <div>
-                                <p className="text-sm font-medium">{company.companies?.name}</p>
-                                <p className="text-xs text-gray-500">
-                                  {company.role} • {company.companies?.location}
-                                </p>
-                              </div>
-                              <span className={`px-2 py-1 text-xs rounded ${
-                                company.status === 'contracted' ? 'bg-green-100 text-green-800' :
-                                company.status === 'negotiating' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-blue-100 text-blue-800'
-                              }`}>
-                                {company.status === 'contracted' ? 'Договор' :
-                                 company.status === 'negotiating' ? 'Переговоры' : 'Поиск'}
-                              </span>
-                            </div>
-                          ))}
-                          {project.project_companies.length > 3 && (
-                            <p className="text-xs text-gray-500 text-center">
-                              +{project.project_companies.length - 3} компаний
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="text-center py-4">
-                          <p className="text-sm text-gray-500 mb-2">Компании не привлечены</p>
-                          <Link
-                            href={`/projects/${project.id}/companies/add`}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
-                          >
-                            Найти компании
-                          </Link>
-                        </div>
-                      )}
                     </div>
                   </div>
 

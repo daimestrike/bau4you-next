@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { supabase, signOut } from '@/lib/supabase'
+import { supabase, signOut, getCartItems, getCurrentUser } from '@/lib/supabase'
 import type { User } from '@supabase/auth-js'
 import { 
   Bars3Icon, 
@@ -15,7 +15,8 @@ import {
   ChartBarIcon,
   MagnifyingGlassIcon,
   PlusIcon,
-  SparklesIcon
+  SparklesIcon,
+  ShoppingCartIcon
 } from '@heroicons/react/24/outline'
 
 interface Profile {
@@ -35,9 +36,33 @@ export default function Header() {
   const [mounted, setMounted] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isScrolled, setIsScrolled] = useState(false)
+  const [cartItemsCount, setCartItemsCount] = useState(0)
   
   const router = useRouter()
   const pathname = usePathname()
+
+  // Функция для загрузки количества товаров в корзине
+  const loadCartCount = async () => {
+    try {
+      const { data: cartItems } = await getCartItems()
+      if (cartItems) {
+        const totalCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
+        setCartItemsCount(totalCount)
+      } else {
+        setCartItemsCount(0)
+      }
+    } catch (error) {
+      console.error('Error loading cart count:', error)
+      setCartItemsCount(0)
+    }
+  }
+
+  // Функция для обновления счетчика корзины (можно вызывать из других компонентов)
+  const updateCartCount = () => {
+    if (user) {
+      loadCartCount()
+    }
+  }
 
   // Scroll effect
   useEffect(() => {
@@ -45,9 +70,18 @@ export default function Header() {
       setIsScrolled(window.scrollY > 10)
     }
     
+    const handleCartUpdate = () => {
+      updateCartCount()
+    }
+    
     window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+    window.addEventListener('cartUpdated', handleCartUpdate)
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('cartUpdated', handleCartUpdate)
+    }
+  }, [user])
 
   // Фикс гидратации
   useEffect(() => {
@@ -62,9 +96,13 @@ export default function Header() {
     // Получаем текущего пользователя
     const getUser = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
+        const { user, error: authError } = await getCurrentUser()
         
         if (!isMounted) return
+        
+        if (authError) {
+          console.error('[Header] Auth error:', authError)
+        }
         
         setUser(user)
         
@@ -79,6 +117,11 @@ export default function Header() {
           if (isMounted && profile) {
             setProfile(profile)
           }
+
+          // Загружаем количество товаров в корзине
+          loadCartCount()
+        } else {
+          setCartItemsCount(0)
         }
       } catch (error) {
         console.error('[Header] Error loading user:', error)
@@ -108,9 +151,13 @@ export default function Header() {
         if (isMounted && profile) {
           setProfile(profile)
         }
+
+        // Загружаем корзину
+        loadCartCount()
       } else {
         setUser(null)
         setProfile(null)
+        setCartItemsCount(0)
       }
       
       if (isMounted) {
@@ -150,10 +197,7 @@ export default function Header() {
     { name: 'Поиск', href: '/search' },
     { name: 'Тендеры', href: '/tenders' },
     { name: 'Материалы', href: '/products' },
-    { name: 'Компании', href: '/companies' },
-    ...(user ? [
-      { name: 'Проекты', href: '/projects' }
-    ] : [])
+    { name: 'Компании', href: '/companies' }
   ]
 
   // Быстрые действия для создания контента
@@ -164,14 +208,13 @@ export default function Header() {
     
     if (profile.role === 'client') {
       actions.push(
-        { name: 'Создать тендер', href: '/tenders/create', icon: 'plus', color: 'green' },
         { name: 'Новый проект', href: '/projects/create', icon: 'plus', color: 'blue' }
       )
     }
     
     if (profile.role === 'contractor') {
       actions.push(
-        { name: 'Найти тендеры', href: '/tenders', icon: 'search', color: 'blue' }
+        { name: 'Найти проекты', href: '/tenders', icon: 'search', color: 'blue' }
       )
     }
     
@@ -214,26 +257,22 @@ export default function Header() {
 
   return (
     <>
-      {/* Spacer для fixed header */}
-      <div className="h-20"></div>
-      
       {/* Header */}
       <header className={`fixed top-4 left-4 right-4 z-50 transition-all duration-300 ${
         isScrolled 
-          ? 'header-scrolled bg-white/80' 
-          : 'header-floating bg-white/70'
+          ? 'backdrop-blur-md shadow-lg border-b border-white/20' 
+          : 'header-floating'
       } rounded-2xl border border-white/20 shadow-2xl`}>
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Логотип */}
             <div className="flex items-center">
               <Link href="/" className="flex items-center space-x-3 group">
-                <div className="relative">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
-                    <SparklesIcon className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl blur opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
-                </div>
+                <img 
+                  src="https://s3.twcstorage.ru/5e559db6-b49dc67b-2ab0-4413-9567-c6e34e6a5bd4/uploads/%D0%BA%D1%80%D1%83%D0%B3%D0%B8%D0%B7%20%D1%87%D0%B0%D1%81%D1%82%D0%B8%D1%86%20%D0%BD%D0%B0%20%D1%81%D0%B5%D1%80%D0%BE%D0%BC.png"
+                  alt="Bau4You Logo"
+                  className="w-10 h-10 rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105 object-cover"
+                />
                 <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
                   Bau4You
                 </span>
@@ -378,6 +417,24 @@ export default function Header() {
                       </Link>
                       
                       <Link
+                        href="/cart"
+                        className="relative flex items-center px-4 py-2.5 text-sm text-gray-700 
+                                 hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-purple-50/50 
+                                 transition-all duration-300 group"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        <div className="relative">
+                          <ShoppingCartIcon className="h-4 w-4 mr-3 text-gray-400 group-hover:text-blue-500 transition-colors duration-300" />
+                          {cartItemsCount > 0 && (
+                            <span className="absolute -top-2 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                              {cartItemsCount > 99 ? '99+' : cartItemsCount}
+                            </span>
+                          )}
+                        </div>
+                        Корзина {cartItemsCount > 0 && `(${cartItemsCount})`}
+                      </Link>
+                      
+                      <Link
                         href="/projects"
                         className="relative flex items-center px-4 py-2.5 text-sm text-gray-700 
                                  hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-purple-50/50 
@@ -494,6 +551,23 @@ export default function Header() {
                         </div>
                       )}
                     </div>
+                    
+                    <Link
+                      href="/cart"
+                      className="flex items-center px-4 py-3 text-base font-medium text-gray-700 hover:text-blue-600 
+                               hover:bg-white/50 transition-all duration-300 rounded-xl"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      <div className="relative mr-3">
+                        <ShoppingCartIcon className="h-5 w-5" />
+                        {cartItemsCount > 0 && (
+                          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                            {cartItemsCount > 99 ? '99+' : cartItemsCount}
+                          </span>
+                        )}
+                      </div>
+                      Корзина {cartItemsCount > 0 && `(${cartItemsCount})`}
+                    </Link>
                     
                     <Link
                       href="/profile"

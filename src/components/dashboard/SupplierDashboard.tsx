@@ -14,10 +14,9 @@ import {
   Handshake
 } from 'lucide-react'
 import MetricCard from './MetricCard'
-import CustomBarChart from './BarChart'
-import CustomPieChart from './PieChart'
 import RecentActivity from './RecentActivity'
 import QuickActions from './QuickActions'
+import ProjectApplicationsManager from './ProjectApplicationsManager'
 
 interface SupplierDashboardProps {
   user: any
@@ -29,10 +28,23 @@ interface SupplierDashboardProps {
     companies: any[]
     orders?: any[]
     sales?: any[]
+    cartStats?: {
+      total_in_carts: number
+      unique_users: number
+      items: any[]
+    }
+    partnerships?: {
+      followedCompanies: number
+      followers: number
+    }
   }
 }
 
 export default function SupplierDashboard({ user, profile, stats }: SupplierDashboardProps) {
+  // Отладочная информация
+  console.log('SupplierDashboard stats:', stats)
+  console.log('Cart stats:', stats.cartStats)
+  
   // Подготовка данных для поставщика
   const availableProjects = stats.projects.length
   const participatingTenders = stats.tenders.length
@@ -40,32 +52,19 @@ export default function SupplierDashboard({ user, profile, stats }: SupplierDash
   const activeProducts = stats.products.filter(p => p.status === 'active').length
   const totalOrders = stats.orders?.length || 0
   const totalSales = stats.sales?.reduce((sum, sale) => sum + (sale.amount || 0), 0) || 0
+  const totalInCarts = stats.cartStats?.total_in_carts || 0
+  const uniqueCartUsers = stats.cartStats?.unique_users || 0
+  const followedCompanies = stats.partnerships?.followedCompanies || 0
+  const followers = stats.partnerships?.followers || 0
 
-  // Статистика продаж по категориям
-  const salesByCategory = stats.products.reduce((acc: any[], product) => {
-    const category = product.category || 'Другое'
-    const existing = acc.find(item => item.name === category)
-    if (existing) {
-      existing.value++
-    } else {
-      acc.push({ 
-        name: category, 
-        value: 1, 
-        color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'][acc.length % 6]
-      })
-    }
-    return acc
-  }, [])
-
-  // График продаж по месяцам
-  const monthlySalesData = [
-    { name: 'Янв', products: 45, orders: 12, revenue: 2800 },
-    { name: 'Фев', products: 52, orders: 15, revenue: 3200 },
-    { name: 'Мар', products: 48, orders: 18, revenue: 4100 },
-    { name: 'Апр', products: 61, orders: 22, revenue: 4800 },
-    { name: 'Май', products: 55, orders: 19, revenue: 4200 },
-    { name: 'Июн', products: 67, orders: 25, revenue: 5500 }
-  ]
+  console.log('Calculated values:', {
+    totalInCarts,
+    uniqueCartUsers,
+    myProducts,
+    activeProducts,
+    followedCompanies,
+    followers
+  })
 
   // Быстрые действия для поставщика
   const quickActions = [
@@ -74,7 +73,7 @@ export default function SupplierDashboard({ user, profile, stats }: SupplierDash
       description: 'Разместить новый товар в каталоге',
       icon: Package,
       href: '/products/create',
-      color: 'bg-purple-600 border-purple-600',
+      color: 'purple' as const,
       enabled: true
     },
     {
@@ -82,7 +81,7 @@ export default function SupplierDashboard({ user, profile, stats }: SupplierDash
       description: 'Найти подходящие проекты',
       icon: Building2,
       href: '/projects',
-      color: 'bg-blue-600 border-blue-600',
+      color: 'blue' as const,
       enabled: true
     },
     {
@@ -90,7 +89,7 @@ export default function SupplierDashboard({ user, profile, stats }: SupplierDash
       description: 'Участвовать в тендерах поставки',
       icon: FileText,
       href: '/tenders',
-      color: 'bg-green-600 border-green-600',
+      color: 'green' as const,
       enabled: true
     },
     {
@@ -98,7 +97,7 @@ export default function SupplierDashboard({ user, profile, stats }: SupplierDash
       description: 'Обработка и доставка заказов',
       icon: ShoppingCart,
       href: '/orders',
-      color: 'bg-orange-600 border-orange-600',
+      color: 'orange' as const,
       enabled: true
     }
   ]
@@ -107,11 +106,11 @@ export default function SupplierDashboard({ user, profile, stats }: SupplierDash
   const recentItems = [
     ...stats.products.map(product => ({
       id: product.id,
-      title: product.title,
+      title: product.name || product.title,
       type: 'product' as const,
       status: product.status,
       created_at: product.created_at,
-      description: `${product.category} • ${product.price} ₽`,
+      description: `${product.category || 'Товар'} • ${product.price} ₽`,
       href: `/products/${product.id}`
     })),
     ...stats.projects.slice(0, 2).map(project => ({
@@ -130,7 +129,7 @@ export default function SupplierDashboard({ user, profile, stats }: SupplierDash
       {/* Приветствие */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-800 rounded-lg text-white p-6">
         <h2 className="text-2xl font-bold mb-2">
-          Добро пожаловать, {profile?.first_name || 'Поставщик'}!
+          Добро пожаловать, {profile?.name_first || 'Поставщик'}!
         </h2>
         <p className="opacity-90">
           Развивайте продажи, участвуйте в проектах и расширяйте сеть партнеров
@@ -138,73 +137,60 @@ export default function SupplierDashboard({ user, profile, stats }: SupplierDash
       </div>
 
       {/* Метрики поставщика */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <MetricCard
           title="Мои товары"
           value={myProducts}
           icon={Package}
-          description={`${activeProducts} активных`}
-          change={{ value: 12, type: 'increase' }}
+          color="purple"
+          change="+12"
+          changeType="positive"
+        />
+        <MetricCard
+          title="В корзинах"
+          value={totalInCarts}
+          icon={ShoppingCart}
+          color="orange"
+          subtitle={uniqueCartUsers > 0 ? `У ${uniqueCartUsers} пользователей` : undefined}
+        />
+        <MetricCard
+          title="Заказы"
+          value={totalOrders}
+          icon={Handshake}
+          color="green"
+          change="+15"
+          changeType="positive"
         />
         <MetricCard
           title="Доступные проекты"
           value={availableProjects}
           icon={Building2}
-          description="Возможности для поставок"
+          color="blue"
         />
         <MetricCard
           title="Участие в тендерах"
           value={participatingTenders}
           icon={FileText}
-          description="Активных тендеров поставки"
-          change={{ value: 8, type: 'increase' }}
-        />
-        <MetricCard
-          title="Заказы"
-          value={totalOrders}
-          icon={ShoppingCart}
-          description="Обработано заказов"
-          change={{ value: 15, type: 'increase' }}
+          color="indigo"
+          change="+8"
+          changeType="positive"
         />
       </div>
 
-      {/* Графики */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <CustomBarChart
-          data={monthlySalesData.map(item => ({ 
-            name: item.name, 
-            value: item.revenue,
-            orders: item.orders,
-            products: item.products 
-          }))}
-          title="Выручка и продажи по месяцам"
-        />
-        {salesByCategory.length > 0 && (
-          <CustomPieChart
-            data={salesByCategory}
-            title="Товары по категориям"
-          />
-        )}
-      </div>
-
-      {/* Быстрые действия и недавняя активность */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {/* Быстрые действия */}
+      <div className="grid grid-cols-1 gap-8">
         <QuickActions
           actions={quickActions}
           title="Быстрые действия"
-        />
-        <RecentActivity
-          items={recentItems}
-          title="Последние товары и возможности"
         />
       </div>
 
       {/* Специальные функции для поставщика */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Блок связей с партнерами */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border p-6">
+        <div className="bg-white rounded-lg shadow-sm border p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-gray-900">
               Связи с партнерами
             </h3>
             <Link 
@@ -215,109 +201,88 @@ export default function SupplierDashboard({ user, profile, stats }: SupplierDash
             </Link>
           </div>
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
               <div className="flex items-center space-x-3">
                 <Users className="w-6 h-6 text-blue-600" />
-                <span className="font-medium text-gray-900 dark:text-white">Заказчики</span>
+                <span className="font-medium text-gray-900">Подписки</span>
               </div>
               <div className="text-right">
-                <span className="text-2xl font-bold text-blue-600">24</span>
-                <p className="text-xs text-gray-500">активных связей</p>
+                <span className="text-2xl font-bold text-blue-600">{followedCompanies}</span>
+                <p className="text-xs text-gray-500">компаний</p>
               </div>
             </div>
-            <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
               <div className="flex items-center space-x-3">
                 <Handshake className="w-6 h-6 text-green-600" />
-                <span className="font-medium text-gray-900 dark:text-white">Подрядчики</span>
+                <span className="font-medium text-gray-900">Подписчики</span>
               </div>
               <div className="text-right">
-                <span className="text-2xl font-bold text-green-600">18</span>
-                <p className="text-xs text-gray-500">партнерств</p>
+                <span className="text-2xl font-bold text-green-600">{followers}</span>
+                <p className="text-xs text-gray-500">на ваши компании</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Блок популярных товаров */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border p-6">
+        <div className="bg-white rounded-lg shadow-sm border p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-gray-900">
               Популярные товары
             </h3>
             <Link 
-              href="/products/analytics" 
+              href="/products" 
               className="text-blue-600 hover:text-blue-800 text-sm"
             >
-              Аналитика
+              Все товары
             </Link>
           </div>
           <div className="space-y-3">
             {stats.products.slice(0, 3).map((product: any, index) => (
-              <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex items-center justify-center">
+                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
                     <Package className="w-4 h-4 text-purple-600" />
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900 dark:text-white">{product.title}</p>
+                    <p className="font-medium text-gray-900">{product.name || product.title}</p>
                     <p className="text-sm text-gray-500">{product.price} ₽</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {Math.round(Math.random() * 20 + 5)} заказов
+                  <p className="text-sm font-medium text-gray-900">
+                    В наличии: {product.stock_quantity || 0}
                   </p>
                   <p className="text-xs text-green-600">
-                    +{Math.round(Math.random() * 50 + 10)}% за месяц
+                    {product.status === 'active' ? 'Активен' : 'Неактивен'}
                   </p>
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Блок аналитики продаж */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Аналитика продаж и поставок
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-purple-600 mb-2">
-              {Math.round(totalSales / 1000)}K ₽
-            </div>
-            <p className="text-gray-600 dark:text-gray-400">Общая выручка</p>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-green-600 mb-2">
-              {Math.round(Math.random() * 30 + 70)}%
-            </div>
-            <p className="text-gray-600 dark:text-gray-400">Выполнение заказов</p>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-blue-600 mb-2">
-              {Math.round(Math.random() * 10 + 15)}
-            </div>
-            <p className="text-gray-600 dark:text-gray-400">Средний рейтинг</p>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-orange-600 mb-2">
-              {Math.round(Math.random() * 5 + 2)}
-            </div>
-            <p className="text-gray-600 dark:text-gray-400">Дни доставки</p>
+            {stats.products.length === 0 && (
+              <div className="text-center py-4 text-gray-500">
+                <Package className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                <p>Товары не найдены</p>
+                <Link 
+                  href="/products/create"
+                  className="text-blue-600 hover:text-blue-800 text-sm"
+                >
+                  Добавить первый товар
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Блок рекомендованных проектов для участия */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border p-6">
+      <div className="bg-white rounded-lg shadow-sm border p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <h3 className="text-lg font-semibold text-gray-900">
             Рекомендованные проекты для участия
           </h3>
           <Link 
-            href="/projects?supplier=true" 
+            href="/projects" 
             className="text-blue-600 hover:text-blue-800 text-sm"
           >
             Все возможности
@@ -325,30 +290,55 @@ export default function SupplierDashboard({ user, profile, stats }: SupplierDash
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {stats.projects.slice(0, 4).map((project: any) => (
-            <div key={project.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow">
+            <div key={project.id} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h4 className="font-medium text-gray-900 dark:text-white">
-                    {project.title}
+                  <h4 className="font-medium text-gray-900 mb-2">
+                    {project.title || project.name}
                   </h4>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {project.location} • Бюджет: {project.budget} млн ₽
+                  <p className="text-sm text-gray-600 mb-2">
+                    {project.description ? 
+                      (project.description.length > 80 ? 
+                        `${project.description.substring(0, 80)}...` : 
+                        project.description
+                      ) : 
+                      'Описание проекта'
+                    }
                   </p>
-                  <p className="text-xs text-green-600 mt-2">
-                    Подходящие товары: {Math.round(Math.random() * 10 + 5)} позиций
-                  </p>
+                  <div className="flex items-center gap-2 text-xs">
+                    {project.category && (
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                        {project.category}
+                      </span>
+                    )}
+                    {project.budget && (
+                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
+                        {project.budget} ₽
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <Link 
-                  href={`/projects/${project.id}/supply`}
-                  className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700 ml-3"
+                  href={`/projects/${project.id}`}
+                  className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700 ml-3 flex-shrink-0"
                 >
-                  Предложить
+                  Посмотреть
                 </Link>
               </div>
             </div>
           ))}
+          {stats.projects.length === 0 && (
+            <div className="col-span-2 text-center py-8 text-gray-500">
+              <Building2 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p className="text-lg font-medium mb-2">Проекты не найдены</p>
+              <p className="text-sm">Новые проекты появятся здесь</p>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Управление заявками на проекты */}
+      <ProjectApplicationsManager userId={user.id} />
     </div>
   )
-} 
+}

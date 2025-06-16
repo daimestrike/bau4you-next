@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createProduct } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import ImageUpload from '@/components/ui/ImageUpload'
 
 interface ProductFormData {
   name: string
@@ -12,7 +13,6 @@ interface ProductFormData {
   discount: number | ''
   category: string
   images: string[]
-  in_stock: boolean
   stock_quantity: number | ''
   specifications: string
 }
@@ -21,14 +21,14 @@ export default function CreateProductPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [formData, setFormData] = useState<ProductFormData>({
     name: '',
     description: '',
     price: '',
     discount: '',
     category: '',
-    images: [''],
-    in_stock: true,
+    images: [],
     stock_quantity: '',
     specifications: ''
   })
@@ -52,63 +52,182 @@ export default function CreateProductPage() {
     }
   }
 
-  const handleImageChange = (index: number, value: string) => {
-    const newImages = [...formData.images]
-    newImages[index] = value
+  const handleImagesChange = useCallback((images: string | string[]) => {
+    console.log('🖼️ Изменение изображений:', images)
     setFormData(prev => ({
       ...prev,
-      images: newImages
+      images: Array.isArray(images) ? images : (images ? [images] : [])
     }))
-  }
-
-  const addImageField = () => {
-    if (formData.images.length < 5) {
-      setFormData(prev => ({
-        ...prev,
-        images: [...prev.images, '']
-      }))
-    }
-  }
-
-  const removeImageField = (index: number) => {
-    if (formData.images.length > 1) {
-      const newImages = formData.images.filter((_, i) => i !== index)
-      setFormData(prev => ({
-        ...prev,
-        images: newImages
-      }))
-    }
-  }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Защита от повторных вызовов
+    if (isLoading) {
+      console.log('⚠️ Создание товара уже в процессе, игнорируем повторный вызов')
+      return
+    }
+    
     setIsLoading(true)
     setError(null)
+    setSuccess(null)
+    
+    // Дополнительная защита - блокируем кнопку на 2 секунды минимум
+    const startTime = Date.now()
 
     try {
-      // Фильтруем пустые изображения
-      const filteredImages = formData.images.filter(img => img.trim() !== '')
+      console.log('🚀 Начинаем создание товара...')
+      console.log('📝 Исходные данные формы:', formData)
       
-      const productData = {
-        ...formData,
-        images: filteredImages,
-        price: formData.price === '' ? 0 : formData.price,
-        discount: formData.discount === '' ? null : formData.discount,
-        stock_quantity: formData.stock_quantity === '' ? null : formData.stock_quantity,
+      // Минимальные данные для создания товара
+      const productData: Record<string, unknown> = {
+        name: formData.name,
+        description: formData.description,
+        price: formData.price === '' ? 0 : Number(formData.price),
+        category: formData.category,
         status: 'active'
       }
-
-      const { data, error } = await createProduct(productData)
       
-      if (error) {
-        throw error
+      // Добавляем дополнительные поля только если они есть в таблице
+      if (formData.images && formData.images.length > 0) {
+        productData.images = formData.images
+      }
+      
+      if (formData.specifications && formData.specifications.trim() !== '') {
+        productData.specifications = formData.specifications
+      }
+      
+      if (formData.discount !== '' && formData.discount !== null) {
+        productData.discount = Number(formData.discount)
+      }
+      
+      // Устанавливаем stock_quantity, если не указано - то 0
+      productData.stock_quantity = formData.stock_quantity !== '' && formData.stock_quantity !== null 
+        ? Number(formData.stock_quantity) 
+        : 0
+      
+
+
+      console.log('📦 Подготовленные данные товара:', productData)
+
+      console.log('🔄 Начинаем получение токена...')
+      // Получаем токен для API запроса с таймаутом
+      let token = null
+      try {
+        console.log('🔍 Вызываем supabase.auth.getSession() с таймаутом 5 секунд...')
+        const sessionPromise = supabase.auth.getSession()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session timeout')), 5000)
+        )
+        
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any
+        token = session?.access_token
+        console.log('🔑 Токен получен:', !!token)
+        console.log('📋 Session данные:', session ? 'есть' : 'нет')
+      } catch (authError) {
+        console.log('⚠️ Ошибка получения токена:', authError)
+        console.log('⚠️ Не удалось получить токен, продолжаем без авторизации')
+        
+        // Если это таймаут, пропускаем получение токена
+        if (authError instanceof Error && authError.message === 'Session timeout') {
+          console.log('⏰ Таймаут получения токена, работаем без авторизации')
+        }
+      }
+      
+      console.log('✅ Токен обработан, переходим к API запросу...')
+
+      // Отправляем данные через API
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      }
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
       }
 
-      router.push(`/products/${data.id}`)
+      const apiUrl = `${window.location.origin}/api/products`
+      console.log('🌐 API URL:', apiUrl)
+      console.log('📋 Headers:', headers)
+      console.log('📦 Данные для отправки:', JSON.stringify(productData, null, 2))
+
+      console.log('🚀 Отправляем fetch запрос...')
+      const response = await Promise.race([
+        fetch(apiUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(productData)
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout: запрос превысил 30 секунд')), 30000)
+        )
+      ]) as Response
+
+      console.log('📡 Получен ответ от сервера, статус:', response.status)
+      console.log('📋 Response headers:', Object.fromEntries(response.headers.entries()))
+      
+      const result = await response.json()
+      console.log('📊 Результат API:', result)
+
+      if (!response.ok) {
+        console.error('❌ Ошибка API:', result)
+        console.log('🔄 Пробуем альтернативный способ создания...')
+        
+        // Fallback: прямое создание через Supabase
+        try {
+          const { createProduct } = await import('@/lib/supabase')
+          const fallbackResult = await createProduct(productData)
+          
+          if (fallbackResult.error) {
+            throw new Error(fallbackResult.error.message)
+          }
+          
+          console.log('✅ Товар создан через fallback метод:', fallbackResult.data)
+          setSuccess('Товар успешно создан! Перенаправляем на страницу товаров...')
+          
+          setTimeout(() => {
+            router.push('/products')
+          }, 2000)
+          return
+        } catch (fallbackError) {
+          console.error('❌ Fallback также не сработал:', fallbackError)
+          throw new Error(result.error || 'Ошибка при создании товара')
+        }
+      }
+
+      console.log('✅ Товар создан успешно через API:', result.data)
+      setSuccess('Товар успешно создан! Перенаправляем на страницу товаров...')
+      
+      // Небольшая задержка перед перенаправлением для отображения успеха
+      setTimeout(() => {
+        router.push('/products')
+      }, 2000)
+      
     } catch (err: unknown) {
       const error = err as Error
-      setError(error.message || 'Произошла ошибка при создании продукта')
+      console.error('💥 Общая ошибка:', error)
+      
+      let errorMessage = 'Произошла ошибка при создании продукта'
+      
+      if (error.message) {
+        errorMessage = error.message
+      }
+      
+      // Добавляем дополнительную информацию для отладки
+      if (error.message?.includes('listener indicated an asynchronous response')) {
+        errorMessage = 'Ошибка браузера: Попробуйте отключить расширения браузера или очистить кэш.'
+      }
+      
+      setError(errorMessage)
     } finally {
+      // Минимальная задержка для предотвращения спама
+      const elapsed = Date.now() - startTime
+      const minDelay = 2000 // 2 секунды минимум
+      
+      if (elapsed < minDelay) {
+        await new Promise(resolve => setTimeout(resolve, minDelay - elapsed))
+      }
+      
       setIsLoading(false)
     }
   }
@@ -129,6 +248,12 @@ export default function CreateProductPage() {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
           {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-6">
+          {success}
         </div>
       )}
 
@@ -230,6 +355,9 @@ export default function CreateProductPage() {
                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 placeholder="0.00"
               />
+              <p className="text-sm text-gray-500 mt-1">
+                Укажите 0, если цена предоставляется по запросу
+              </p>
             </div>
 
             <div>
@@ -267,65 +395,25 @@ export default function CreateProductPage() {
               />
             </div>
 
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="in_stock"
-                name="in_stock"
-                checked={formData.in_stock}
-                onChange={handleInputChange}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <label htmlFor="in_stock" className="ml-2 text-sm text-gray-700">
-                Товар в наличии
-              </label>
-            </div>
+
           </div>
         </div>
 
         <div className="bg-white shadow-sm rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Изображения</h2>
+          <h2 className="text-xl font-semibold mb-4">Изображения товара</h2>
           
-          <div className="space-y-4">
-            {formData.images.map((image, index) => (
-              <div key={index} className="flex items-center space-x-2">
-                <input
-                  type="url"
-                  value={image}
-                  onChange={(e) => handleImageChange(index, e.target.value)}
-                  className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  placeholder="https://example.com/image.jpg"
-                />
-                {formData.images.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeImageField(index)}
-                    className="text-red-600 hover:text-red-800 p-2"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            ))}
-            
-            {formData.images.length < 5 && (
-              <button
-                type="button"
-                onClick={addImageField}
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
-              >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Добавить изображение
-              </button>
-            )}
-          </div>
+          <ImageUpload
+            value={formData.images}
+            onChange={handleImagesChange}
+            multiple={true}
+            maxFiles={5}
+            placeholder="Перетащите изображения товара сюда или нажмите для выбора"
+            disabled={isLoading}
+          />
           
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-sm text-gray-500 mt-4">
             Добавьте до 5 изображений товара. Первое изображение будет использоваться как основное.
+            Поддерживаемые форматы: JPEG, PNG, WebP, GIF (до 10MB каждое).
           </p>
         </div>
 

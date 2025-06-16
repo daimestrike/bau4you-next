@@ -4,6 +4,8 @@ import { Suspense, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { supabase, getCurrentUser } from '@/lib/supabase'
+import SEOHead from '@/components/SEO/SEOHead'
+import { generateTenderSEO, generateTenderArticleSchema, generateBreadcrumbSchema } from '@/lib/seo'
 
 interface TenderPageProps {
   params: Promise<{
@@ -30,8 +32,22 @@ function TenderDetails({ id }: { id: string }) {
   const [tender, setTender] = useState<any>(null)
   const [applications, setApplications] = useState<any[]>([])
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [userApplication, setUserApplication] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false)
+
+  useEffect(() => {
+    // Проверяем URL параметры для показа сообщения об успехе
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.get('application') === 'success') {
+      setShowSuccessMessage(true)
+      // Убираем параметр из URL
+      window.history.replaceState({}, '', window.location.pathname)
+      // Скрываем сообщение через 5 секунд
+      setTimeout(() => setShowSuccessMessage(false), 5000)
+    }
+  }, [])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -74,6 +90,20 @@ function TenderDetails({ id }: { id: string }) {
             setApplications(applicationsData || [])
           }
         }
+
+        // Проверяем, подавал ли текущий пользователь заявку на этот тендер
+        if (user && tenderData.client_id !== user.id) {
+          const { data: userApplicationData, error: userApplicationError } = await supabase
+            .from('applications')
+            .select('*')
+            .eq('tender_id', id)
+            .eq('contractor_id', user.id)
+            .maybeSingle()
+
+          if (!userApplicationError && userApplicationData) {
+            setUserApplication(userApplicationData)
+          }
+        }
       } catch (err: any) {
         setError(err.message || 'Ошибка загрузки тендера')
       } finally {
@@ -114,7 +144,7 @@ function TenderDetails({ id }: { id: string }) {
   }
 
   const isOwner = currentUser && tender.client_id === currentUser.id
-  const canApply = currentUser && !isOwner && tender.status === 'published'
+  const canApply = currentUser && !isOwner && tender.status === 'published' && !userApplication
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -138,8 +168,57 @@ function TenderDetails({ id }: { id: string }) {
     }
   }
 
+  const getApplicationStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      case 'accepted': return 'bg-green-100 text-green-800 border-green-200'
+      case 'rejected': return 'bg-red-100 text-red-800 border-red-200'
+      default: return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+  }
+
+  const getApplicationStatusText = (status: string) => {
+    switch (status) {
+      case 'pending': return 'На рассмотрении'
+      case 'accepted': return 'Принята'
+      case 'rejected': return 'Отклонена'
+      default: return status
+    }
+  }
+
   return (
     <div className="space-y-8">
+      {/* Сообщение об успешной подаче заявки */}
+      {showSuccessMessage && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-green-800">
+                Заявка успешно отправлена! Заказчик рассмотрит её и свяжется с вами.
+              </p>
+            </div>
+            <div className="ml-auto pl-3">
+              <div className="-mx-1.5 -my-1.5">
+                <button
+                  onClick={() => setShowSuccessMessage(false)}
+                  className="inline-flex bg-green-50 rounded-md p-1.5 text-green-500 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-green-50 focus:ring-green-600"
+                >
+                  <span className="sr-only">Закрыть</span>
+                  <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-lg shadow-sm p-6">
         <div className="flex justify-between items-start mb-6">
           <div className="flex-1">
@@ -221,15 +300,64 @@ function TenderDetails({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* Кнопка подачи заявки */}
-      {canApply && (
+      {/* Статус заявки пользователя или кнопка подачи заявки */}
+      {currentUser && !isOwner && (
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          {userApplication ? (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Ваша заявка</h2>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getApplicationStatusColor(userApplication.status)}`}>
+                  {getApplicationStatusText(userApplication.status)}
+                </span>
+              </div>
+              
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <h3 className="font-medium text-gray-900 mb-2">Ваше предложение:</h3>
+                <p className="text-gray-700 whitespace-pre-line">{userApplication.proposal}</p>
+              </div>
+              
+              <div className="flex justify-between items-center text-sm text-gray-600">
+                <span>Подана: {new Date(userApplication.created_at).toLocaleDateString('ru-RU')} в {new Date(userApplication.created_at).toLocaleTimeString('ru-RU')}</span>
+                {userApplication.status === 'pending' && (
+                  <span className="text-blue-600">Ожидайте ответа от заказчика</span>
+                )}
+                {userApplication.status === 'accepted' && (
+                  <span className="text-green-600">Поздравляем! Ваша заявка принята</span>
+                )}
+                {userApplication.status === 'rejected' && (
+                  <span className="text-red-600">К сожалению, ваша заявка отклонена</span>
+                )}
+              </div>
+            </div>
+          ) : tender.status === 'published' ? (
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Заинтересованы в этом проекте?</h2>
+              <Link
+                href={`/tenders/${id}/apply`}
+                className="inline-block px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Подать заявку
+              </Link>
+            </div>
+          ) : (
+            <div className="text-gray-600">
+              <h2 className="text-lg font-semibold mb-2">Тендер недоступен для подачи заявок</h2>
+              <p>Статус тендера: {getStatusText(tender.status)}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Информация для неавторизованных пользователей */}
+      {!currentUser && (
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h2 className="text-lg font-semibold mb-4">Заинтересованы в этом проекте?</h2>
           <Link
-            href={`/tenders/${id}/apply`}
+            href="/login"
             className="inline-block px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
-            Подать заявку
+            Войти для подачи заявки
           </Link>
         </div>
       )}
@@ -252,7 +380,7 @@ function TenderDetails({ id }: { id: string }) {
               <div key={application.id} className="flex justify-between items-center p-3 border border-gray-200 rounded">
                 <div>
                   <div className="font-medium">
-                                          {`${application.profiles?.name_first || ''} ${application.profiles?.name_last || ''}`.trim() || application.profiles?.company_name || 'Неизвестный исполнитель'}
+                    {`${application.profiles?.name_first || ''} ${application.profiles?.name_last || ''}`.trim() || application.profiles?.company_name || 'Неизвестный исполнитель'}
                   </div>
                   <div className="text-sm text-gray-600">
                     {new Date(application.created_at).toLocaleDateString('ru-RU')}

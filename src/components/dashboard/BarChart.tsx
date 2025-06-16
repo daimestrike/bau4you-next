@@ -14,8 +14,8 @@ interface BarChartProps {
 
 export default function CustomBarChart({ data, title, className = '' }: BarChartProps) {
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border p-6 ${className}`}>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{title}</h3>
+    <div className={`bg-white rounded-lg shadow-sm border p-6 ${className}`}>
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -23,11 +23,11 @@ export default function CustomBarChart({ data, title, className = '' }: BarChart
             <XAxis 
               dataKey="name" 
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-300"
+              className="text-gray-600"
             />
             <YAxis 
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-300"
+              className="text-gray-600"
             />
             <Tooltip 
               contentStyle={{

@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { getCartItems, createOrder, clearCart } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { getCartItems, clearCart, getCurrentUser, supabase } from '@/lib/supabase'
 
 interface CartItem {
   id: string
@@ -15,39 +15,91 @@ interface CartItem {
     price: number
     discount_price?: number
     images: string[]
+    stock_quantity: number
+    status: string
+    seller_id: string
+    profiles?: {
+      email?: string
+      name_first?: string
+      name_last?: string
+      company_name?: string
+    }
     companies?: {
       name: string
+      email?: string
     }
   }
 }
 
+interface OrderForm {
+  name: string
+  email: string
+  phone: string
+  company?: string
+  message: string
+  delivery_address: string
+  preferred_contact: 'email' | 'phone'
+}
+
 export default function CheckoutPage() {
+  const router = useRouter()
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [formData, setFormData] = useState({
-    shipping_address: '',
-    shipping_method: 'standard',
-    payment_method: 'cash',
-    notes: ''
+  const [success, setSuccess] = useState(false)
+  
+  const [formData, setFormData] = useState<OrderForm>({
+    name: '',
+    email: '',
+    phone: '',
+    company: '',
+    message: '',
+    delivery_address: '',
+    preferred_contact: 'email'
   })
-  const router = useRouter()
 
   useEffect(() => {
-    loadCartItems()
+    loadData()
   }, [])
 
-  const loadCartItems = async () => {
+  const loadData = async () => {
     try {
-      const { data, error } = await getCartItems()
-      if (error) {
-        setError(error.message)
-      } else {
-        setCartItems(data || [])
+      // Загружаем корзину
+      const { data: cartData, error: cartError } = await getCartItems()
+      if (cartError) {
+        setError(cartError.message)
+        return
+      }
+
+      if (!cartData || cartData.length === 0) {
+        router.push('/cart')
+        return
+      }
+
+      setCartItems(cartData)
+
+      // Загружаем данные пользователя для предзаполнения формы
+      const userData = await getCurrentUser()
+      if (userData?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userData.user!.id)
+          .single()
+
+        if (profile) {
+          setFormData(prev => ({
+            ...prev,
+            name: `${profile.name_first || ''} ${profile.name_last || ''}`.trim() || prev.name,
+            email: profile.email || userData.user?.email || prev.email,
+            phone: profile.phone || prev.phone,
+            company: profile.company_name || prev.company
+          }))
+        }
       }
     } catch {
-      setError('Ошибка загрузки корзины')
+      setError('Ошибка загрузки данных')
     } finally {
       setLoading(false)
     }
@@ -73,16 +125,6 @@ export default function CheckoutPage() {
     return cartItems.reduce((total, item) => total + getItemTotal(item), 0)
   }
 
-  const getShippingCost = () => {
-    if (formData.shipping_method === 'express') return 500
-    if (formData.shipping_method === 'pickup') return 0
-    return 300 // standard
-  }
-
-  const getFinalTotal = () => {
-    return getTotalPrice() + getShippingCost()
-  }
-
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('ru-RU', {
       style: 'currency',
@@ -91,47 +133,122 @@ export default function CheckoutPage() {
     }).format(price)
   }
 
+  // Группируем товары по поставщикам
+  const groupItemsBySeller = () => {
+    const groups: { [sellerId: string]: CartItem[] } = {}
+    cartItems.forEach(item => {
+      const sellerId = item.products.seller_id
+      if (!groups[sellerId]) {
+        groups[sellerId] = []
+      }
+      groups[sellerId].push(item)
+    })
+    return groups
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (cartItems.length === 0) {
-      setError('Корзина пуста')
-      return
-    }
-
-    if (!formData.shipping_address.trim()) {
-      setError('Укажите адрес доставки')
-      return
-    }
-
     setSubmitting(true)
     setError(null)
 
     try {
-      const orderItems = cartItems.map(item => ({
-        product_id: item.products.id,
-        quantity: item.quantity,
-        price: getItemPrice(item)
-      }))
-
-      const { data, error } = await createOrder({
-        items: orderItems,
-        shipping_address: formData.shipping_address,
-        shipping_method: formData.shipping_method,
-        payment_method: formData.payment_method,
-        notes: formData.notes
-      })
-
-      if (error) {
-        setError(error.message)
-      } else {
-        // Очищаем корзину после успешного оформления
-        await clearCart()
-        // Перенаправляем на страницу успеха
-        router.push(`/orders/${data.id}?success=true`)
+      // Валидация
+      if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim()) {
+        setError('Пожалуйста, заполните все обязательные поля')
+        return
       }
-    } catch {
-      setError('Ошибка оформления заказа')
+
+      if (!formData.delivery_address.trim()) {
+        setError('Пожалуйста, укажите адрес доставки')
+        return
+      }
+
+      const sellerGroups = groupItemsBySeller()
+
+      // Отправляем заказ каждому поставщику
+      for (const [sellerId, items] of Object.entries(sellerGroups)) {
+        const sellerEmail = items[0].products.profiles?.email || items[0].products.companies?.email
+        const sellerName = items[0].products.companies?.name || 
+                          `${items[0].products.profiles?.name_first || ''} ${items[0].products.profiles?.name_last || ''}`.trim() ||
+                          'Поставщик'
+
+        if (!sellerEmail) {
+          console.warn(`Не найден email для поставщика ${sellerId}`)
+          continue
+        }
+
+        // Формируем данные заказа
+        const orderData = {
+          buyer: {
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            company: formData.company,
+            preferred_contact: formData.preferred_contact
+          },
+          delivery_address: formData.delivery_address,
+          message: formData.message,
+          items: items.map(item => ({
+            product_id: item.products.id,
+            name: item.products.name,
+            quantity: item.quantity,
+            price: getItemPrice(item),
+            total: getItemTotal(item)
+          })),
+          total_amount: items.reduce((sum, item) => sum + getItemTotal(item), 0),
+          seller: {
+            id: sellerId,
+            name: sellerName,
+            email: sellerEmail
+          }
+        }
+
+        // Отправляем email поставщику
+        try {
+          const emailResponse = await fetch('/api/send-order-email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(orderData)
+          })
+          
+          if (!emailResponse.ok) {
+            console.warn('Ошибка отправки email поставщику:', await emailResponse.text())
+          } else {
+            console.log('Email успешно отправлен поставщику')
+          }
+        } catch (emailError) {
+          console.warn('Ошибка отправки email:', emailError)
+        }
+
+        // Создаем запись в базе данных для статистики
+        const currentUser = await getCurrentUser()
+        await supabase.from('orders').insert({
+          buyer_id: currentUser?.user?.id,
+          seller_id: sellerId,
+          items: orderData.items,
+          total_amount: orderData.total_amount,
+          status: 'pending',
+          buyer_info: orderData.buyer,
+          delivery_address: formData.delivery_address,
+          message: formData.message
+        })
+      }
+
+      // Очищаем корзину после успешного оформления
+      await clearCart()
+      
+      setSuccess(true)
+      
+      // Перенаправляем через 3 секунды
+      setTimeout(() => {
+        router.push('/orders')
+      }, 3000)
+
+    } catch (err) {
+      console.error('Ошибка оформления заказа:', err)
+      setError('Ошибка при оформлении заказа. Попробуйте еще раз.')
     } finally {
       setSubmitting(false)
     }
@@ -141,51 +258,60 @@ export default function CheckoutPage() {
     return (
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
+          <div className="h-8 bg-gray-200 rounded w-1/3 mb-6"></div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-4">
-              <div className="h-32 bg-gray-200 rounded"></div>
-              <div className="h-32 bg-gray-200 rounded"></div>
+              <div className="h-10 bg-gray-200 rounded"></div>
+              <div className="h-10 bg-gray-200 rounded"></div>
+              <div className="h-24 bg-gray-200 rounded"></div>
             </div>
-            <div className="h-64 bg-gray-200 rounded"></div>
+            <div className="bg-gray-200 rounded-lg h-64"></div>
           </div>
         </div>
       </main>
     )
   }
 
-  if (cartItems.length === 0) {
+  if (success) {
     return (
       <main className="container mx-auto px-4 py-8 max-w-4xl">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Оформление заказа</h1>
-        
         <div className="text-center py-12">
           <div className="mb-6">
-            <svg className="mx-auto h-24 w-24 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-1.1 5.4a.996.996 0 01-.9.6H3" />
+            <svg className="mx-auto h-16 w-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-gray-700 mb-2">Корзина пуста</h2>
-          <p className="text-gray-500 mb-6">Добавьте товары в корзину для оформления заказа</p>
-          <Link
-            href="/products"
-            className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Перейти к покупкам
-          </Link>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Заказ успешно оформлен!</h1>
+          <p className="text-gray-600 mb-8">
+            Ваш заказ отправлен поставщикам. Они свяжутся с вами в ближайшее время для уточнения деталей.
+          </p>
+          <div className="space-x-4">
+            <Link 
+              href="/orders"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Мои заказы
+            </Link>
+            <Link 
+              href="/products"
+              className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Продолжить покупки
+            </Link>
+          </div>
         </div>
       </main>
     )
   }
 
   return (
-    <main className="container mx-auto px-4 py-8 max-w-4xl">
+    <main className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="mb-8">
         <Link 
           href="/cart" 
           className="text-blue-600 hover:text-blue-800 mb-4 inline-flex items-center"
         >
-          ← Назад в корзину
+          ← Вернуться в корзину
         </Link>
         <h1 className="text-3xl font-bold text-gray-900">Оформление заказа</h1>
       </div>
@@ -200,153 +326,157 @@ export default function CheckoutPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Форма заказа */}
           <div className="space-y-6">
-            {/* Адрес доставки */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold mb-4">Адрес доставки</h2>
-              <textarea
-                name="shipping_address"
-                value={formData.shipping_address}
-                onChange={handleInputChange}
-                required
-                rows={3}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                placeholder="Укажите полный адрес доставки с индексом"
-              />
-            </div>
-
-            {/* Способ доставки */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold mb-4">Способ доставки</h2>
-              <div className="space-y-3">
-                <label className="flex items-center">
+              <h2 className="text-xl font-semibold mb-4">Контактная информация</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                    ФИО *
+                  </label>
                   <input
-                    type="radio"
-                    name="shipping_method"
-                    value="standard"
-                    checked={formData.shipping_method === 'standard'}
+                    type="text"
+                    id="name"
+                    name="name"
+                    required
+                    value={formData.name}
                     onChange={handleInputChange}
-                    className="mr-3"
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
-                  <div className="flex-1 flex justify-between">
-                    <span>Стандартная доставка (3-5 дней)</span>
-                    <span className="font-medium">{formatPrice(300)}</span>
-                  </div>
-                </label>
-                <label className="flex items-center">
+                </div>
+                
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                    Email *
+                  </label>
                   <input
-                    type="radio"
-                    name="shipping_method"
-                    value="express"
-                    checked={formData.shipping_method === 'express'}
+                    type="email"
+                    id="email"
+                    name="email"
+                    required
+                    value={formData.email}
                     onChange={handleInputChange}
-                    className="mr-3"
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
-                  <div className="flex-1 flex justify-between">
-                    <span>Экспресс-доставка (1-2 дня)</span>
-                    <span className="font-medium">{formatPrice(500)}</span>
-                  </div>
-                </label>
-                <label className="flex items-center">
+                </div>
+                
+                <div>
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                    Телефон *
+                  </label>
                   <input
-                    type="radio"
-                    name="shipping_method"
-                    value="pickup"
-                    checked={formData.shipping_method === 'pickup'}
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    required
+                    value={formData.phone}
                     onChange={handleInputChange}
-                    className="mr-3"
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
-                  <div className="flex-1 flex justify-between">
-                    <span>Самовывоз</span>
-                    <span className="font-medium">Бесплатно</span>
-                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">
+                    Компания
+                  </label>
+                  <input
+                    type="text"
+                    id="company"
+                    name="company"
+                    value={formData.company}
+                    onChange={handleInputChange}
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              
+              <div className="mt-4">
+                <label htmlFor="preferred_contact" className="block text-sm font-medium text-gray-700 mb-1">
+                  Предпочтительный способ связи
                 </label>
+                <select
+                  id="preferred_contact"
+                  name="preferred_contact"
+                  value={formData.preferred_contact}
+                  onChange={handleInputChange}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                >
+                  <option value="email">Email</option>
+                  <option value="phone">Телефон</option>
+                </select>
               </div>
             </div>
 
-            {/* Способ оплаты */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold mb-4">Способ оплаты</h2>
-              <div className="space-y-3">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="payment_method"
-                    value="cash"
-                    checked={formData.payment_method === 'cash'}
-                    onChange={handleInputChange}
-                    className="mr-3"
-                  />
-                  <span>Наличными при получении</span>
+              <h2 className="text-xl font-semibold mb-4">Доставка</h2>
+              
+              <div>
+                <label htmlFor="delivery_address" className="block text-sm font-medium text-gray-700 mb-1">
+                  Адрес доставки *
                 </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="payment_method"
-                    value="card"
-                    checked={formData.payment_method === 'card'}
-                    onChange={handleInputChange}
-                    className="mr-3"
-                  />
-                  <span>Банковской картой при получении</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="payment_method"
-                    value="online"
-                    checked={formData.payment_method === 'online'}
-                    onChange={handleInputChange}
-                    className="mr-3"
-                  />
-                  <span>Онлайн-оплата</span>
-                </label>
+                <textarea
+                  id="delivery_address"
+                  name="delivery_address"
+                  required
+                  rows={3}
+                  value={formData.delivery_address}
+                  onChange={handleInputChange}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  placeholder="Укажите полный адрес доставки"
+                />
               </div>
             </div>
 
-            {/* Комментарий */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold mb-4">Комментарий к заказу</h2>
-              <textarea
-                name="notes"
-                value={formData.notes}
-                onChange={handleInputChange}
-                rows={3}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                placeholder="Дополнительные пожелания к заказу"
-              />
+              <h2 className="text-xl font-semibold mb-4">Дополнительная информация</h2>
+              
+              <div>
+                <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
+                  Комментарий к заказу
+                </label>
+                <textarea
+                  id="message"
+                  name="message"
+                  rows={4}
+                  value={formData.message}
+                  onChange={handleInputChange}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  placeholder="Укажите особые пожелания, сроки доставки или другую важную информацию"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Итоги заказа */}
+          {/* Сводка заказа */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm p-6 sticky top-4">
               <h2 className="text-xl font-semibold mb-4">Ваш заказ</h2>
               
-              {/* Список товаров */}
-              <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+              <div className="space-y-4 mb-6">
                 {cartItems.map((item) => (
-                  <div key={item.id} className="flex gap-3 py-2 border-b border-gray-100 last:border-b-0">
-                    <div className="w-12 h-12 flex-shrink-0">
+                  <div key={item.id} className="flex gap-3">
+                    <div className="w-16 h-16 flex-shrink-0">
                       {item.products.images && item.products.images.length > 0 ? (
                         <Image
                           src={item.products.images[0]}
                           alt={item.products.name}
-                          width={48}
-                          height={48}
-                          className="w-full h-full object-cover rounded"
+                          width={64}
+                          height={64}
+                          className="w-full h-full object-cover rounded-md"
                         />
                       ) : (
-                        <div className="w-full h-full bg-gray-100 rounded flex items-center justify-center">
+                        <div className="w-full h-full bg-gray-100 rounded-md flex items-center justify-center">
                           <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
                         </div>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium text-gray-900 truncate">
+                    
+                    <div className="flex-1">
+                      <h3 className="font-medium text-sm text-gray-900 line-clamp-2">
                         {item.products.name}
-                      </h4>
+                      </h3>
                       <p className="text-sm text-gray-600">
                         {item.quantity} × {formatPrice(getItemPrice(item))}
                       </p>
@@ -358,23 +488,14 @@ export default function CheckoutPage() {
                 ))}
               </div>
               
-              {/* Расчеты */}
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between text-gray-600">
-                  <span>Товары</span>
-                  <span>{formatPrice(getTotalPrice())}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Доставка</span>
-                  <span>{formatPrice(getShippingCost())}</span>
-                </div>
-              </div>
-              
               <div className="border-t pt-4 mb-6">
                 <div className="flex justify-between text-xl font-semibold">
                   <span>Итого:</span>
-                  <span>{formatPrice(getFinalTotal())}</span>
+                  <span>{formatPrice(getTotalPrice())}</span>
                 </div>
+                <p className="text-sm text-gray-600 mt-2">
+                  * Стоимость доставки будет рассчитана поставщиком
+                </p>
               </div>
 
               <button
@@ -382,8 +503,13 @@ export default function CheckoutPage() {
                 disabled={submitting}
                 className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {submitting ? 'Оформляем заказ...' : 'Оформить заказ'}
+                {submitting ? 'Оформление...' : 'Оформить заказ'}
               </button>
+
+              <p className="text-xs text-gray-500 mt-4 text-center">
+                Нажимая "Оформить заказ", вы соглашаетесь с условиями использования платформы. 
+                Ваши контактные данные будут переданы поставщикам для обработки заказа.
+              </p>
             </div>
           </div>
         </div>

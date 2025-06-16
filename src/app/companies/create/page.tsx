@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createCompany } from '@/lib/supabase'
+import { createCompany, supabase } from '@/lib/supabase'
+import ImageUpload from '@/components/ui/ImageUpload'
 
 interface CompanyFormData {
   name: string
@@ -11,11 +12,20 @@ interface CompanyFormData {
   type: string
   website: string
   logo_url: string
-  location: string
+  city: string
+  services: string[]
+  industry?: string
+  region_id?: string
+  founding_year?: number | string
+  employee_count?: number | string
+  email?: string
+  cover_image_url?: string
+  phone?: string
 }
 
 export default function CreateCompanyPage() {
   const router = useRouter()
+  
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState<CompanyFormData>({
@@ -24,8 +34,94 @@ export default function CreateCompanyPage() {
     type: '',
     website: '',
     logo_url: '',
-    location: ''
+    city: '',
+    services: [''],
+    industry: '',
+    region_id: '',
+    founding_year: '',
+    employee_count: '',
+    email: '',
+    cover_image_url: '',
+    phone: ''
   })
+  
+  // Восстанавливаем загрузку регионов после добавления region_id в БД
+  const [regions, setRegions] = useState<{id: string, name: string}[]>([])
+  const [authLoading, setAuthLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('Auth error:', error)
+          setIsAuthenticated(false)
+          router.push('/login?redirect=' + encodeURIComponent('/companies/create'))
+          return
+        }
+
+        if (session?.user) {
+          console.log('✅ Пользователь авторизован:', session.user.email)
+          setIsAuthenticated(true)
+          // Восстанавливаем загрузку регионов после добавления region_id в БД
+          loadRegions()
+        } else {
+          console.log('🔄 Пользователь не авторизован, перенаправление на вход')
+          setIsAuthenticated(false)
+          router.push('/login?redirect=' + encodeURIComponent('/companies/create'))
+          return
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error)
+        setIsAuthenticated(false)
+        router.push('/login?redirect=' + encodeURIComponent('/companies/create'))
+      } finally {
+        setAuthLoading(false)
+      }
+    }
+
+    checkAuth()
+
+    // Слушаем изменения авторизации
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔄 Auth state changed:', event, session?.user?.email)
+      if (event === 'SIGNED_OUT') {
+        setIsAuthenticated(false)
+        router.push('/login?redirect=' + encodeURIComponent('/companies/create'))
+      } else if (event === 'SIGNED_IN' && session?.user) {
+        setIsAuthenticated(true)
+        setAuthLoading(false)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [router])
+
+  // Восстанавливаем загрузку регионов
+  const loadRegions = async () => {
+    try {
+      console.log('🔍 Начинаем загрузку регионов...')
+      
+      const { data, error } = await supabase
+        .from('regions')
+        .select('id, name')
+        .order('name')
+      
+      if (error) {
+        console.error('❌ Ошибка Supabase:', error)
+        throw error
+      }
+      
+      setRegions(data || [])
+      console.log('✅ Регионы успешно загружены:', data?.length || 0)
+    } catch (error) {
+      console.error('💥 Критическая ошибка загрузки регионов:', error)
+    }
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -80,30 +176,143 @@ export default function CreateCompanyPage() {
     setError(null)
 
     try {
+      console.log('📝 Начинаем создание компании...')
+      
       // Фильтруем пустые услуги
       const filteredServices = formData.services.filter(service => service.trim() !== '')
       
+      // Подготавливаем данные для отправки со всеми полями после миграции
       const companyData = {
-        ...formData,
-        services: filteredServices,
-        founding_year: formData.founding_year === '' ? null : formData.founding_year,
-        employee_count: formData.employee_count === '' ? null : formData.employee_count,
-        status: 'active'
+        name: formData.name,
+        description: formData.description,
+        type: formData.type || 'contractor',
+        website: formData.website || null,
+        logo_url: formData.logo_url || null,
+        region_id: formData.region_id ? parseInt(formData.region_id as string) : null,
+        // Восстанавливаем все поля после успешной миграции
+        location: formData.city || null,
+        phone: formData.phone || null,
+        email: formData.email || null,
+        // Можно добавить address если нужно
+        address: null // пока не используется в форме
+        // Убираем status так как этого поля нет в БД
+        // status: 'active'
       }
-
-      const { data, error } = await createCompany(companyData)
       
-      if (error) {
-        throw error
+      console.log('📝 Отправляем данные компании:', companyData)
+
+      // Получаем токен авторизации
+      console.log('🔑 Начинаем получение токена...')
+      let session, token
+      try {
+        console.log('🔍 Вызываем supabase.auth.getSession()...')
+        
+        // Добавляем таймаут для getSession
+        const sessionPromise = supabase.auth.getSession()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session timeout')), 10000)
+        )
+        
+        const sessionResult = await Promise.race([sessionPromise, timeoutPromise]) as any
+        console.log('🔍 getSession завершен, обрабатываем результат...')
+        
+        session = sessionResult.data?.session
+        token = session?.access_token
+        
+        console.log('🔑 Токен получен:', !!token)
+        console.log('👤 Пользователь из сессии:', session?.user?.email)
+        console.log('🔍 Session object:', session ? 'exists' : 'null')
+        
+        if (!session) {
+          console.log('⚠️ Сессия не найдена, но продолжаем без токена')
+        }
+      } catch (tokenError) {
+        console.error('❌ Ошибка получения токена:', tokenError)
+        console.log('⚠️ Продолжаем без токена авторизации')
+        session = null
+        token = null
       }
 
-      router.push(`/companies/${data.id}`)
+      // Используем API route вместо прямого обращения к Supabase
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+        console.log('🔐 Заголовок авторизации установлен')
+      } else {
+        console.log('⚠️ Токен отсутствует, отправляем без авторизации')
+      }
+
+      console.log('🌐 Отправляем запрос к API...')
+      console.log('📋 Headers:', headers)
+      
+      let response
+      try {
+        response = await fetch('/api/companies', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(companyData)
+        })
+        console.log('📡 Fetch завершен успешно')
+      } catch (fetchError) {
+        console.error('❌ Ошибка fetch:', fetchError)
+        throw new Error(`Ошибка сетевого запроса: ${fetchError}`)
+      }
+
+      console.log('📡 Получен ответ от API:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.log('❌ Ошибка от API:', errorData)
+        throw new Error(errorData.error || 'Ошибка при создании компании')
+      }
+
+      const result = await response.json()
+      console.log('✅ Компания создана успешно:', result)
+      
+      // Получаем ID созданной компании
+      const companyId = result.data?.[0]?.id || result.data?.id
+      if (companyId) {
+        router.push(`/companies/${companyId}`)
+      } else {
+        router.push('/companies')
+      }
     } catch (err: unknown) {
       const error = err as Error
+      console.error('❌ Общая ошибка:', error)
       setError(error.message || 'Произошла ошибка при создании компании')
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Показываем загрузку пока проверяется аутентификация
+  if (authLoading) {
+    return (
+      <main className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="flex justify-center items-center min-h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-2">Проверка авторизации...</span>
+        </div>
+      </main>
+    )
+  }
+
+  // Если пользователь не авторизован, хук автоматически перенаправит на логин
+  if (!isAuthenticated) {
+    return (
+      <main className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="text-center">
+          <p>Перенаправление на страницу входа...</p>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -171,19 +380,22 @@ export default function CreateCompanyPage() {
             </div>
 
             <div>
-              <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
-                Город *
+              <label htmlFor="region_id" className="block text-sm font-medium text-gray-700 mb-1">
+                Регион *
               </label>
-              <input
-                type="text"
-                id="city"
-                name="city"
+              <select
+                id="region_id"
+                name="region_id"
                 required
-                value={formData.city}
+                value={formData.region_id}
                 onChange={handleInputChange}
                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                placeholder="Москва"
-              />
+              >
+                <option value="">Выберите регион</option>
+                {regions.map(region => (
+                  <option key={region.id} value={region.id}>{region.name}</option>
+                ))}
+              </select>
             </div>
 
             <div className="md:col-span-2">
@@ -220,6 +432,36 @@ export default function CreateCompanyPage() {
                 onChange={handleInputChange}
                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 placeholder="info@company.ru"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                Телефон
+              </label>
+              <input
+                type="tel"
+                id="phone"
+                name="phone"
+                value={formData.phone}
+                onChange={handleInputChange}
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="+7 (999) 123-45-67"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
+                Город
+              </label>
+              <input
+                type="text"
+                id="city"
+                name="city"
+                value={formData.city}
+                onChange={handleInputChange}
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="Москва"
               />
             </div>
 
@@ -278,32 +520,26 @@ export default function CreateCompanyPage() {
             </div>
 
             <div>
-              <label htmlFor="logo_url" className="block text-sm font-medium text-gray-700 mb-1">
-                Логотип (URL)
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Логотип
               </label>
-              <input
-                type="url"
-                id="logo_url"
-                name="logo_url"
+              <ImageUpload
                 value={formData.logo_url}
-                onChange={handleInputChange}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                placeholder="https://example.com/logo.png"
+                onChange={(url) => setFormData(prev => ({ ...prev, logo_url: Array.isArray(url) ? url[0] || '' : url }))}
+                multiple={false}
+                maxFiles={1}
               />
             </div>
 
             <div>
-              <label htmlFor="cover_image_url" className="block text-sm font-medium text-gray-700 mb-1">
-                Обложка (URL)
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Обложка
               </label>
-              <input
-                type="url"
-                id="cover_image_url"
-                name="cover_image_url"
-                value={formData.cover_image_url}
-                onChange={handleInputChange}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                placeholder="https://example.com/cover.jpg"
+              <ImageUpload
+                value={formData.cover_image_url || ''}
+                onChange={(url) => setFormData(prev => ({ ...prev, cover_image_url: Array.isArray(url) ? url[0] || '' : url }))}
+                multiple={false}
+                maxFiles={1}
               />
             </div>
           </div>
@@ -362,6 +598,7 @@ export default function CreateCompanyPage() {
           >
             Отмена
           </Link>
+
           <button
             type="submit"
             disabled={isLoading}

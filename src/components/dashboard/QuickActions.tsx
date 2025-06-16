@@ -7,7 +7,8 @@ interface QuickAction {
   title: string
   description: string
   icon: LucideIcon
-  href: string
+  href?: string
+  onClick?: () => void
   color: 'blue' | 'green' | 'purple' | 'orange' | 'red' | 'indigo'
   enabled: boolean
 }
@@ -131,11 +132,31 @@ export default function QuickActions({ actions, title, className = '' }: QuickAc
             </div>
           )
           
-          return action.enabled ? (
-            <Link key={index} href={action.href}>
-              {content}
-            </Link>
-          ) : (
+          if (!action.enabled) {
+            return (
+              <div key={index}>
+                {content}
+              </div>
+            )
+          }
+
+          if (action.onClick) {
+            return (
+              <button key={index} onClick={action.onClick} className="w-full text-left">
+                {content}
+              </button>
+            )
+          }
+
+          if (action.href) {
+            return (
+              <Link key={index} href={action.href}>
+                {content}
+              </Link>
+            )
+          }
+
+          return (
             <div key={index}>
               {content}
             </div>

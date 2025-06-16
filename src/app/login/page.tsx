@@ -141,34 +141,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Тестовые кнопки для отладки - показываем только в режиме разработки */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded">
-              <p className="text-sm text-blue-700 mb-2">
-                🔧 Режим разработки - отладочные кнопки:
-              </p>
-              <div className="space-y-2">
-                <button
-                  onClick={() => {
-                    console.log('[Login] Ручной переход на дашборд...')
-                    window.location.href = '/dashboard'
-                  }}
-                  className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 text-sm"
-                >
-                  🔗 Прямой переход на дашборд
-                </button>
-                <button
-                  onClick={() => {
-                    console.log('[Login] Переход через router...')
-                    router.push('/dashboard')
-                  }}
-                  className="w-full bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 text-sm"
-                >
-                  🚀 Router.push на дашборд
-                </button>
-              </div>
-            </div>
-          )}
+
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
@@ -239,34 +212,7 @@ export default function LoginPage() {
               </button>
             </div>
 
-            <div className="mt-6">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Или войдите с помощью</span>
-                </div>
-              </div>
 
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-                >
-                  <span className="sr-only">Войти через Google</span>
-                  Google
-                </button>
-
-                <button
-                  type="button"
-                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-                >
-                  <span className="sr-only">Войти через GitHub</span>
-                  GitHub
-                </button>
-              </div>
-            </div>
           </form>
         </div>
       </div>

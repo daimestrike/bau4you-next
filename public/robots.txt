@@ -1,0 +1,23 @@
+# *
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /auth-test/
+Disallow: /test-*
+Disallow: /simple-login/
+Disallow: /test-login/
+Disallow: /_next/
+Disallow: /*.json$
+Disallow: /checkout/
+Disallow: /cart/
+Disallow: /profile/edit
+Disallow: /profile/settings
+
+# Host
+Host: https://bau4you.co
+
+# Sitemaps
+Sitemap: https://bau4you.co/sitemap.xml
+Sitemap: https://bau4you.co/server-sitemap.xml

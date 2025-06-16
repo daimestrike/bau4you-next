@@ -16,8 +16,8 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
 
 export default function CustomPieChart({ data, title, className = '' }: PieChartProps) {
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border p-6 ${className}`}>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{title}</h3>
+    <div className={`bg-white rounded-lg shadow-sm border p-6 ${className}`}>
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>

@@ -23,5 +23,4 @@ export async function createClient() {
   )
 }
 
-// Создаем экземпляр для использования
-export const supabaseServer = createClient() 
+ 

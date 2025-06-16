@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { getCompanyPortfolio, addPortfolioItem, updatePortfolioItem, deletePortfolioItem } from '@/lib/supabase'
+import { getCompanyPortfolio, addPortfolioItem, updatePortfolioItem, deletePortfolioItem, getCompany, getCurrentUser } from '@/lib/supabase'
 
 interface PortfolioItem {
   id: string
@@ -28,6 +28,8 @@ export default function CompanyPortfolioPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null)
+  const [isOwner, setIsOwner] = useState(false)
+  const [companyName, setCompanyName] = useState('')
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -45,20 +47,38 @@ export default function CompanyPortfolioPage() {
   })
 
   useEffect(() => {
-    const fetchPortfolio = async () => {
+    const fetchData = async () => {
+      if (!id) return
+
       try {
-        const { data } = await getCompanyPortfolio(id as string)
-        if (data) setPortfolio(data)
+        // Загружаем текущего пользователя
+        const userResult = await getCurrentUser()
+        
+        // Загружаем информацию о компании
+        const companyResult = await getCompany(id as string)
+        
+        if (companyResult.data) {
+          setCompanyName(companyResult.data.name)
+          
+          // Проверяем, является ли текущий пользователь владельцем компании
+          if (userResult.user && companyResult.data.owner_id === userResult.user.id) {
+            setIsOwner(true)
+          }
+        }
+
+        // Загружаем портфолио
+        const portfolioResult = await getCompanyPortfolio(id as string)
+        if (portfolioResult.data) {
+          setPortfolio(portfolioResult.data)
+        }
       } catch (error) {
-        console.error('Error fetching portfolio:', error)
+        console.error('Error fetching data:', error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    if (id) {
-      fetchPortfolio()
-    }
+    fetchData()
   }, [id])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -175,8 +195,12 @@ export default function CompanyPortfolioPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Портфолио компании</h1>
-          <p className="text-gray-600 mt-1">Управление проектами в портфолио</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Портфолио {companyName ? `компании "${companyName}"` : 'компании'}
+          </h1>
+          <p className="text-gray-600 mt-1">
+            {isOwner ? 'Управление проектами в портфолио' : 'Проекты компании'}
+          </p>
         </div>
         <div className="space-x-3">
           <Link
@@ -185,12 +209,14 @@ export default function CompanyPortfolioPage() {
           >
             Назад к профилю
           </Link>
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          {isOwner && (
+          <Link
+            href={`/companies/${id}/portfolio/add`}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-block text-center"
           >
             Добавить проект
-          </button>
+          </Link>
+          )}
         </div>
       </div>
 
@@ -254,20 +280,22 @@ export default function CompanyPortfolioPage() {
                      item.status === 'in_progress' ? 'В работе' : 'Черновик'}
                   </span>
                   
+                  {isOwner && (
                   <div className="space-x-2">
                     <button
                       onClick={() => handleEdit(item)}
-                      className="text-blue-600 hover:text-blue-800 text-sm"
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                     >
                       Редактировать
                     </button>
                     <button
                       onClick={() => handleDelete(item.id)}
-                      className="text-red-600 hover:text-red-800 text-sm"
+                        className="text-red-600 hover:text-red-800 text-sm font-medium"
                     >
                       Удалить
                     </button>
                   </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -280,19 +308,26 @@ export default function CompanyPortfolioPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
             <h3 className="text-lg font-medium text-gray-900 mb-2">Портфолио пусто</h3>
-            <p className="text-gray-500 mb-4">Начните добавлять проекты, чтобы продемонстрировать работу компании</p>
-            <button
-              onClick={() => setShowForm(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            <p className="text-gray-500 mb-4">
+              {isOwner 
+                ? 'Начните добавлять проекты, чтобы продемонстрировать работу компании' 
+                : 'У компании пока нет проектов в портфолио'
+              }
+            </p>
+            {isOwner && (
+            <Link
+              href={`/companies/${id}/portfolio/add`}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-block"
             >
               Добавить первый проект
-            </button>
+            </Link>
+            )}
           </div>
         </div>
       )}
 
-      {/* Модальное окно формы */}
-      {showForm && (
+      {/* Модальное окно формы - только для владельца */}
+      {showForm && isOwner && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 my-8">
             <h3 className="text-lg font-semibold mb-4">
@@ -562,4 +597,4 @@ export default function CompanyPortfolioPage() {
       )}
     </div>
   )
-} 
+}

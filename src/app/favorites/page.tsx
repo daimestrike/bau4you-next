@@ -26,7 +26,6 @@ interface Company {
   email: string
   website: string
   logo_url: string
-  services: string[]
   verified: boolean
   created_at: string
 }
@@ -61,7 +60,6 @@ export default function FavoritesPage() {
               email,
               website,
               logo_url,
-              services,
               verified,
               created_at
             )
@@ -282,24 +280,12 @@ export default function FavoritesPage() {
                     )}
                   </div>
 
-                  {/* Услуги */}
-                  {company.services && company.services.length > 0 && (
+                  {/* Отрасль */}
+                  {company.industry && (
                     <div className="mb-4">
-                      <div className="flex flex-wrap gap-1">
-                        {company.services.slice(0, 3).map((service, index) => (
-                          <span
-                            key={index}
-                            className="bg-blue-100 text-blue-800 px-2 py-1 text-xs rounded-full"
-                          >
-                            {service}
-                          </span>
-                        ))}
-                        {company.services.length > 3 && (
-                          <span className="text-gray-500 text-xs px-2 py-1">
-                            +{company.services.length - 3}
-                          </span>
-                        )}
-                      </div>
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 text-xs rounded-full">
+                        {company.industry}
+                      </span>
                     </div>
                   )}
 
@@ -311,13 +297,6 @@ export default function FavoritesPage() {
                     >
                       <MessageSquare className="w-4 h-4 mr-1" />
                       Написать
-                    </button>
-                    <button
-                      onClick={() => handleSendApplication(company.id)}
-                      className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center"
-                    >
-                      <Send className="w-4 h-4 mr-1" />
-                      Заявка
                     </button>
                     <Link
                       href={`/companies/${company.id}`}
@@ -334,4 +313,4 @@ export default function FavoritesPage() {
       )}
     </div>
   )
-} 
+}

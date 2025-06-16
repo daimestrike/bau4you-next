@@ -1,0 +1,299 @@
+-- ————————————————————————————————————————————————
+-- 1) Вставляем регионы РФ
+-- ————————————————————————————————————————————————
+INSERT INTO public.regions (name) VALUES
+  ('Республика Адыгея'),
+  ('Республика Башкортостан'),
+  ('Республика Бурятия'),
+  ('Республика Алтай'),
+  ('Республика Дагестан'),
+  ('Республика Ингушетия'),
+  ('Кабардино-Балкарская Республика'),
+  ('Республика Калмыкия'),
+  ('Карачаево-Черкесская Республика'),
+  ('Республика Карелия'),
+  ('Республика Коми'),
+  ('Республика Марий Эл'),
+  ('Республика Мордовия'),
+  ('Республика Саха (Якутия)'),
+  ('Республика Северная Осетия – Алания'),
+  ('Республика Татарстан'),
+  ('Республика Тыва'),
+  ('Удмуртская Республика'),
+  ('Республика Хакасия'),
+  ('Чеченская Республика'),
+  ('Чувашская Республика'),
+  ('Алтайский край'),
+  ('Краснодарский край'),
+  ('Красноярский край'),
+  ('Приморский край'),
+  ('Ставропольский край'),
+  ('Хабаровский край'),
+  ('Амурская область'),
+  ('Архангельская область'),
+  ('Астраханская область'),
+  ('Белгородская область'),
+  ('Брянская область'),
+  ('Владимирская область'),
+  ('Волгоградская область'),
+  ('Вологодская область'),
+  ('Воронежская область'),
+  ('Ивановская область'),
+  ('Иркутская область'),
+  ('Калининградская область'),
+  ('Калужская область'),
+  ('Камчатский край'),
+  ('Кемеровская область'),
+  ('Кировская область'),
+  ('Костромская область'),
+  ('Курганская область'),
+  ('Курская область'),
+  ('Ленинградская область'),
+  ('Липецкая область'),
+  ('Магаданская область'),
+  ('Московская область'),
+  ('Мурманская область'),
+  ('Нижегородская область'),
+  ('Новгородская область'),
+  ('Новосибирская область'),
+  ('Омская область'),
+  ('Оренбургская область'),
+  ('Орловская область'),
+  ('Пензенская область'),
+  ('Пермский край'),
+  ('Псковская область'),
+  ('Ростовская область'),
+  ('Рязанская область'),
+  ('Самарская область'),
+  ('Саратовская область'),
+  ('Сахалинская область'),
+  ('Свердловская область'),
+  ('Смоленская область'),
+  ('Тамбовская область'),
+  ('Тверская область'),
+  ('Томская область'),
+  ('Тульская область'),
+  ('Тюменская область'),
+  ('Ульяновская область'),
+  ('Челябинская область'),
+  ('Забайкальский край'),
+  ('Ярославская область'),
+  ('Еврейская автономная область'),
+  ('Ненецкий автономный округ'),
+  ('Ханты-Мансийский автономный округ'),
+  ('Ямало-Ненецкий автономный округ'),
+  ('Чукотский автономный округ'),
+  ('Республика Крым'),
+  ('Севастополь');
+
+-- ————————————————————————————————————————————————
+-- 2) Вставляем по 3–4 основных города для каждого региона
+-- ————————————————————————————————————————————————
+INSERT INTO public.cities (region_id, name) VALUES
+  -- Республика Адыгея
+  ((SELECT id FROM public.regions WHERE name='Республика Адыгея'), 'Майкоп'),
+  ((SELECT id FROM public.regions WHERE name='Республика Адыгея'), 'Теучежск'),
+  ((SELECT id FROM public.regions WHERE name='Республика Адыгея'), 'Крымск'),
+
+  -- Республика Башкортостан
+  ((SELECT id FROM public.regions WHERE name='Республика Башкортостан'), 'Уфа'),
+  ((SELECT id FROM public.regions WHERE name='Республика Башкортостан'), 'Стерлитамак'),
+  ((SELECT id FROM public.regions WHERE name='Республика Башкортостан'), 'Салават'),
+  ((SELECT id FROM public.regions WHERE name='Республика Башкортостан'), 'Нефтекамск'),
+
+  -- Республика Бурятия
+  ((SELECT id FROM public.regions WHERE name='Республика Бурятия'), 'Улан-Удэ'),
+  ((SELECT id FROM public.regions WHERE name='Республика Бурятия'), 'Усть-Орда'),
+  ((SELECT id FROM public.regions WHERE name='Республика Бурятия'), 'Северобайкальск'),
+
+  -- Республика Алтай
+  ((SELECT id FROM public.regions WHERE name='Республика Алтай'), 'Горно-Алтайск'),
+  ((SELECT id FROM public.regions WHERE name='Республика Алтай'), 'Онгудай'),
+  ((SELECT id FROM public.regions WHERE name='Республика Алтай'), 'Майма'),
+
+  -- Республика Дагестан
+  ((SELECT id FROM public.regions WHERE name='Республика Дагестан'), 'Махачкала'),
+  ((SELECT id FROM public.regions WHERE name='Республика Дагестан'), 'Дербент'),
+  ((SELECT id FROM public.regions WHERE name='Республика Дагестан'), 'Кизляр'),
+
+  -- ... (аналогично для остальных)
+  ((SELECT id FROM public.regions WHERE name='Москва и Московская область'), 'Москва'),
+  ((SELECT id FROM public.regions WHERE name='Москва и Московская область'), 'Подольск'),
+  ((SELECT id FROM public.regions WHERE name='Москва и Московская область'), 'Мытищи'),
+  ((SELECT id FROM public.regions WHERE name='Москва и Московская область'), 'Клин'),
+
+  ((SELECT id FROM public.regions WHERE name='Санкт-Петербург и Ленобласть'), 'Санкт-Петербург'),
+  ((SELECT id FROM public.regions WHERE name='Санкт-Петербург и Ленобласть'), 'Гатчина'),
+  ((SELECT id FROM public.regions WHERE name='Санкт-Петербург и Ленобласть'), 'Всеволожск'),
+  ((SELECT id FROM public.regions WHERE name='Санкт-Петербург и Ленобласть'), 'Выборг'),
+
+  ((SELECT id FROM public.regions WHERE name='Новосибирская область'), 'Новосибирск'),
+  ((SELECT id FROM public.regions WHERE name='Новосибирская область'), 'Бердск'),
+  ((SELECT id FROM public.regions WHERE name='Новосибирская область'), 'Обь'),
+
+  ((SELECT id FROM public.regions WHERE name='Краснодарский край'), 'Краснодар'),
+  ((SELECT id FROM public.regions WHERE name='Краснодарский край'), 'Сочи'),
+  ((SELECT id FROM public.regions WHERE name='Краснодарский край'), 'Геленджик'),
+
+  ((SELECT id FROM public.regions WHERE name='Приморский край'), 'Владивосток'),
+  ((SELECT id FROM public.regions WHERE name='Приморский край'), 'Находка'),
+  ((SELECT id FROM public.regions WHERE name='Приморский край'), 'Арсеньев'),
+
+  ((SELECT id FROM public.regions WHERE name='Свердловская область'), 'Екатеринбург'),
+  ((SELECT id FROM public.regions WHERE name='Свердловская область'), 'Нижний Тагил'),
+  ((SELECT id FROM public.regions WHERE name='Свердловская область'), 'Курган'),
+
+  ((SELECT id FROM public.regions WHERE name='Ростовская область'), 'Ростов-на-Дону'),
+  ((SELECT id FROM public.regions WHERE name='Ростовская область'), 'Таганрог'),
+  ((SELECT id FROM public.regions WHERE name='Ростовская область'), 'Шахты'),
+
+  ((SELECT id FROM public.regions WHERE name='Рязанская область'), 'Рязань'),
+  ((SELECT id FROM public.regions WHERE name='Рязанская область'), 'Сасово'),
+  ((SELECT id FROM public.regions WHERE name='Рязанская область'), 'Касимов'),
+
+  ((SELECT id FROM public.regions WHERE name='Самарская область'), 'Самара'),
+  ((SELECT id FROM public.regions WHERE name='Самарская область'), 'Тольятти'),
+  ((SELECT id FROM public.regions WHERE name='Самарская область'), 'Сызрань'),
+
+  ((SELECT id FROM public.regions WHERE name='Саратовская область'), 'Саратов'),
+  ((SELECT id FROM public.regions WHERE name='Саратовская область'), 'Энгельс'),
+  ((SELECT id FROM public.regions WHERE name='Саратовская область'), 'Балаково'),
+
+  ((SELECT id FROM public.regions WHERE name='Красноярский край'), 'Красноярск'),
+  ((SELECT id FROM public.regions WHERE name='Красноярский край'), 'Ачинск'),
+  ((SELECT id FROM public.regions WHERE name='Красноярский край'), 'Норильск');
+
+-- остальные города добавляй по аналогии:
+-- ((SELECT id FROM public.regions WHERE name='…'), '…'), …
+INSERT INTO public.cities (region_id, name) VALUES
+  ((SELECT id FROM public.regions WHERE name='Тюменская область'), 'Тюмень'),
+  ((SELECT id FROM public.regions WHERE name='Тюменская область'), 'Тобольск'),
+  ((SELECT id FROM public.regions WHERE name='Тюменская область'), 'Ишим'),
+
+  ((SELECT id FROM public.regions WHERE name='Челябинская область'), 'Челябинск'),
+  ((SELECT id FROM public.regions WHERE name='Челябинская область'), 'Магнитогорск'),
+  ((SELECT id FROM public.regions WHERE name='Челябинская область'), 'Златоуст'),
+
+  ((SELECT id FROM public.regions WHERE name='Волгоградская область'), 'Волгоград'),
+  ((SELECT id FROM public.regions WHERE name='Волгоградская область'), 'Камышин'),
+  ((SELECT id FROM public.regions WHERE name='Волгоградская область'), 'Волжский'),
+
+  ((SELECT id FROM public.regions WHERE name='Томская область'), 'Томск'),
+  ((SELECT id FROM public.regions WHERE name='Томская область'), 'Северск'),
+  ((SELECT id FROM public.regions WHERE name='Томская область'), 'Асино'),
+
+  ((SELECT id FROM public.regions WHERE name='Хабаровский край'), 'Хабаровск'),
+  ((SELECT id FROM public.regions WHERE name='Хабаровский край'), 'Комсомольск-на-Амуре'),
+  ((SELECT id FROM public.regions WHERE name='Хабаровский край'), 'Амурск'),
+
+  ((SELECT id FROM public.regions WHERE name='Иркутская область'), 'Иркутск'),
+  ((SELECT id FROM public.regions WHERE name='Иркутская область'), 'Ангарск'),
+  ((SELECT id FROM public.regions WHERE name='Иркутская область'), 'Братск'),
+
+  ((SELECT id FROM public.regions WHERE name='Омская область'), 'Омск'),
+  ((SELECT id FROM public.regions WHERE name='Омская область'), 'Калачинск'),
+  ((SELECT id FROM public.regions WHERE name='Омская область'), 'Исилькуль'),
+
+  ((SELECT id FROM public.regions WHERE name='Кемеровская область'), 'Кемерово'),
+  ((SELECT id FROM public.regions WHERE name='Кемеровская область'), 'Новокузнецк'),
+  ((SELECT id FROM public.regions WHERE name='Кемеровская область'), 'Прокопьевск');
+
+  INSERT INTO public.cities (region_id, name) VALUES
+  ((SELECT id FROM public.regions WHERE name='Пермский край'), 'Пермь'),
+  ((SELECT id FROM public.regions WHERE name='Пермский край'), 'Березники'),
+  ((SELECT id FROM public.regions WHERE name='Пермский край'), 'Соликамск'),
+
+  ((SELECT id FROM public.regions WHERE name='Архангельская область'), 'Архангельск'),
+  ((SELECT id FROM public.regions WHERE name='Архангельская область'), 'Северодвинск'),
+  ((SELECT id FROM public.regions WHERE name='Архангельская область'), 'Котлас'),
+
+  ((SELECT id FROM public.regions WHERE name='Белгородская область'), 'Белгород'),
+  ((SELECT id FROM public.regions WHERE name='Белгородская область'), 'Старый Оскол'),
+  ((SELECT id FROM public.regions WHERE name='Белгородская область'), 'Губкин'),
+
+  ((SELECT id FROM public.regions WHERE name='Воронежская область'), 'Воронеж'),
+  ((SELECT id FROM public.regions WHERE name='Воронежская область'), 'Борисоглебск'),
+  ((SELECT id FROM public.regions WHERE name='Воронежская область'), 'Лиски'),
+
+  ((SELECT id FROM public.regions WHERE name='Ленинградская область'), 'Гатчина'),
+  ((SELECT id FROM public.regions WHERE name='Ленинградская область'), 'Выборг'),
+  ((SELECT id FROM public.regions WHERE name='Ленинградская область'), 'Кириши'),
+
+  ((SELECT id FROM public.regions WHERE name='Нижегородская область'), 'Нижний Новгород'),
+  ((SELECT id FROM public.regions WHERE name='Нижегородская область'), 'Арзамас'),
+  ((SELECT id FROM public.regions WHERE name='Нижегородская область'), 'Дзержинск'),
+
+  ((SELECT id FROM public.regions WHERE name='Калининградская область'), 'Калининград'),
+  ((SELECT id FROM public.regions WHERE name='Калининградская область'), 'Советск'),
+  ((SELECT id FROM public.regions WHERE name='Калининградская область'), 'Черняховск'),
+
+  ((SELECT id FROM public.regions WHERE name='Калужская область'), 'Калуга'),
+  ((SELECT id FROM public.regions WHERE name='Калужская область'), 'Обнинск'),
+  ((SELECT id FROM public.regions WHERE name='Калужская область'), 'Малоярославец');
+
+  INSERT INTO public.cities (region_id, name) VALUES
+  ((SELECT id FROM public.regions WHERE name='Ярославская область'), 'Ярославль'),
+  ((SELECT id FROM public.regions WHERE name='Ярославская область'), 'Рыбинск'),
+  ((SELECT id FROM public.regions WHERE name='Ярославская область'), 'Переславль-Залесский'),
+
+  ((SELECT id FROM public.regions WHERE name='Владимирская область'), 'Владимир'),
+  ((SELECT id FROM public.regions WHERE name='Владимирская область'), 'Ковров'),
+  ((SELECT id FROM public.regions WHERE name='Владимирская область'), 'Муром'),
+
+  ((SELECT id FROM public.regions WHERE name='Тульская область'), 'Тула'),
+  ((SELECT id FROM public.regions WHERE name='Тульская область'), 'Новомосковск'),
+  ((SELECT id FROM public.regions WHERE name='Тульская область'), 'Щёкино'),
+
+  ((SELECT id FROM public.regions WHERE name='Брянская область'), 'Брянск'),
+  ((SELECT id FROM public.regions WHERE name='Брянская область'), 'Клинцы'),
+  ((SELECT id FROM public.regions WHERE name='Брянская область'), 'Сельцо'),
+
+  ((SELECT id FROM public.regions WHERE name='Орловская область'), 'Орёл'),
+  ((SELECT id FROM public.regions WHERE name='Орловская область'), 'Ливны'),
+  ((SELECT id FROM public.regions WHERE name='Орловская область'), 'Мценск'),
+
+  ((SELECT id FROM public.regions WHERE name='Курская область'), 'Курск'),
+  ((SELECT id FROM public.regions WHERE name='Курская область'), 'Железногорск'),
+  ((SELECT id FROM public.regions WHERE name='Курская область'), 'Льгов'),
+
+  ((SELECT id FROM public.regions WHERE name='Смоленская область'), 'Смоленск'),
+  ((SELECT id FROM public.regions WHERE name='Смоленская область'), 'Рославль'),
+  ((SELECT id FROM public.regions WHERE name='Смоленская область'), 'Сафоново'),
+
+  ((SELECT id FROM public.regions WHERE name='Тверская область'), 'Тверь'),
+  ((SELECT id FROM public.regions WHERE name='Тверская область'), 'Ржев'),
+  ((SELECT id FROM public.regions WHERE name='Тверская область'), 'Вышний Волочёк');
+
+  INSERT INTO public.cities (region_id, name) VALUES
+  ((SELECT id FROM public.regions WHERE name='Амурская область'), 'Благовещенск'),
+  ((SELECT id FROM public.regions WHERE name='Амурская область'), 'Свободный'),
+  ((SELECT id FROM public.regions WHERE name='Амурская область'), 'Белогорск'),
+
+  ((SELECT id FROM public.regions WHERE name='Забайкальский край'), 'Чита'),
+  ((SELECT id FROM public.regions WHERE name='Забайкальский край'), 'Борзя'),
+  ((SELECT id FROM public.regions WHERE name='Забайкальский край'), 'Краснокаменск'),
+
+  ((SELECT id FROM public.regions WHERE name='Сахалинская область'), 'Южно-Сахалинск'),
+  ((SELECT id FROM public.regions WHERE name='Сахалинская область'), 'Холмск'),
+  ((SELECT id FROM public.regions WHERE name='Сахалинская область'), 'Корсаков'),
+
+  ((SELECT id FROM public.regions WHERE name='Мурманская область'), 'Мурманск'),
+  ((SELECT id FROM public.regions WHERE name='Мурманская область'), 'Апатиты'),
+  ((SELECT id FROM public.regions WHERE name='Мурманская область'), 'Кандалакша'),
+
+  ((SELECT id FROM public.regions WHERE name='Магаданская область'), 'Магадан'),
+  ((SELECT id FROM public.regions WHERE name='Магаданская область'), 'Сусуман'),
+  ((SELECT id FROM public.regions WHERE name='Магаданская область'), 'Ола'),
+
+  ((SELECT id FROM public.regions WHERE name='Чукотский автономный округ'), 'Анадырь'),
+  ((SELECT id FROM public.regions WHERE name='Чукотский автономный округ'), 'Певек'),
+  ((SELECT id FROM public.regions WHERE name='Чукотский автономный округ'), 'Билибино'),
+
+  ((SELECT id FROM public.regions WHERE name='Республика Крым'), 'Симферополь'),
+  ((SELECT id FROM public.regions WHERE name='Республика Крым'), 'Севастополь'),
+  ((SELECT id FROM public.regions WHERE name='Республика Крым'), 'Ялта'),
+
+  ((SELECT id FROM public.regions WHERE name='Севастополь'), 'Севастополь');
+  
+
+COMMIT;

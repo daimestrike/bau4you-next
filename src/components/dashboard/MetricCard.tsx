@@ -9,6 +9,7 @@ interface MetricCardProps {
   changeType?: 'positive' | 'negative' | 'neutral'
   icon: LucideIcon
   color?: 'blue' | 'green' | 'purple' | 'orange' | 'red' | 'indigo'
+  subtitle?: string
 }
 
 export default function MetricCard({ 
@@ -17,7 +18,8 @@ export default function MetricCard({
   change, 
   changeType = 'neutral', 
   icon: Icon,
-  color = 'blue'
+  color = 'blue',
+  subtitle
 }: MetricCardProps) {
   const colorClasses = {
     blue: {
@@ -75,6 +77,9 @@ export default function MetricCard({
           <div className="flex-1">
             <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
             <p className="text-3xl font-bold text-gray-900 mb-2">{value}</p>
+            {subtitle && (
+              <p className="text-xs text-gray-500 mb-2">{subtitle}</p>
+            )}
             {change && (
               <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${changeClasses[changeType]}`}>
                 {changeType === 'positive' && (

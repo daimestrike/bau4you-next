@@ -4,6 +4,9 @@ import { useState, useEffect, useRef, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { globalSearch, getSearchSuggestions, getPopularSearches, saveSearchHistory, getSearchHistory } from '@/lib/supabase'
+import { formatPriceSimple } from '@/utils/formatPrice'
+import SEOHead from '@/components/SEO/SEOHead'
+import { generateSearchSEO } from '@/lib/seo'
 
 // Отключаем SSG для этой страницы
 export const dynamic = 'force-dynamic'
@@ -126,15 +129,20 @@ function SearchPageContent() {
     ))
   }
 
+  // Генерируем SEO данные
+  const searchSEO = generateSearchSEO(query)
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
+      <SEOHead structuredData={undefined} />
+      <div className="min-h-screen bg-gray-50" suppressHydrationWarning={true}>
       {/* Шапка поиска */}
-      <div className="bg-white shadow-sm border-b sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center space-x-4">
+      <div className="bg-white shadow-sm border-b sticky top-0 z-40" suppressHydrationWarning={true}>
+        <div className="container mx-auto px-4 py-4" suppressHydrationWarning={true}>
+          <div className="flex items-center space-x-4" suppressHydrationWarning={true}>
             {/* Логотип */}
             <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center" suppressHydrationWarning={true}>
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -143,7 +151,7 @@ function SearchPageContent() {
             </Link>
 
             {/* Поисковая строка */}
-            <div className="flex-1 max-w-2xl relative">
+            <div className="flex-1 max-w-2xl relative" suppressHydrationWarning={true}>
               <form onSubmit={handleSearchSubmit} className="relative">
                 <input
                   ref={searchInputRef}
@@ -202,7 +210,7 @@ function SearchPageContent() {
           </div>
 
           {/* Фильтры */}
-          <div className="flex items-center space-x-1 mt-4">
+          <div className="flex items-center space-x-1 mt-4" suppressHydrationWarning={true}>
             {[
               { key: 'all', label: 'Все результаты' },
               { key: 'tenders', label: 'Тендеры' },
@@ -226,7 +234,7 @@ function SearchPageContent() {
       </div>
 
       {/* Основной контент */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8" suppressHydrationWarning={true}>
         {/* Загрузка */}
         {isLoading && (
           <div className="flex items-center justify-center py-12">
@@ -236,9 +244,9 @@ function SearchPageContent() {
 
         {/* Нет запроса - показываем стартовую страницу */}
         {!query && !isLoading && (
-          <div className="max-w-4xl mx-auto text-center py-12">
-            <div className="mb-8">
-              <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div className="max-w-4xl mx-auto text-center py-12" suppressHydrationWarning={true}>
+            <div className="mb-8" suppressHydrationWarning={true}>
+              <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6" suppressHydrationWarning={true}>
                 <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -250,9 +258,9 @@ function SearchPageContent() {
             </div>
 
             {/* Популярные категории */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-              <div className="bg-white rounded-lg p-6 shadow-sm border">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12" suppressHydrationWarning={true}>
+              <div className="bg-white rounded-lg p-6 shadow-sm border" suppressHydrationWarning={true}>
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4" suppressHydrationWarning={true}>
                   <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
@@ -261,8 +269,8 @@ function SearchPageContent() {
                 <p className="text-gray-600">Поиск по строительным тендерам и проектам</p>
               </div>
 
-              <div className="bg-white rounded-lg p-6 shadow-sm border">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <div className="bg-white rounded-lg p-6 shadow-sm border" suppressHydrationWarning={true}>
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4" suppressHydrationWarning={true}>
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
@@ -271,8 +279,8 @@ function SearchPageContent() {
                 <p className="text-gray-600">Строительные материалы и оборудование</p>
               </div>
 
-              <div className="bg-white rounded-lg p-6 shadow-sm border">
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <div className="bg-white rounded-lg p-6 shadow-sm border" suppressHydrationWarning={true}>
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-4" suppressHydrationWarning={true}>
                   <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
@@ -315,29 +323,31 @@ function SearchPageContent() {
               </p>
             </div>
 
-            {/* Тендеры */}
+            {/* Тендеры и Проекты */}
             {(activeFilter === 'all' || activeFilter === 'tenders') && results.tenders.length > 0 && (
               <div className="mb-8">
                 <h3 className="text-xl font-semibold mb-4 flex items-center">
                   <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  Тендеры ({results.tenders.length})
+                  Тендеры и Проекты ({results.tenders.length})
                 </h3>
                 <div className="space-y-4">
                   {results.tenders.map((tender) => (
                     <Link
                       key={tender.id}
-                      href={`/tenders/${tender.id}`}
+                      href={tender.type === 'project' ? `/projects/${tender.id}` : `/tenders/${tender.id}`}
                       className="block bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow p-6"
                     >
-                      <div className="flex justify-between items-start mb-3">
-                        <h4 className="text-lg font-semibold text-gray-900 hover:text-blue-600">
-                          {tender.title}
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="text-lg font-semibold text-gray-900 hover:text-blue-600 flex-1">
+                          {tender.name || tender.title}
                         </h4>
-                        <span className="bg-green-100 text-green-800 px-2 py-1 text-xs rounded-full">
-                          {tender.status === 'published' ? 'Активный' : tender.status}
-                        </span>
+                        {tender.category && (
+                          <span className="bg-blue-100 text-blue-800 px-2 py-1 text-xs rounded-full">
+                            Проект
+                          </span>
+                        )}
                       </div>
                       <p className="text-gray-600 mb-4 line-clamp-2">{tender.description}</p>
                       <div className="flex justify-between items-center text-sm">
@@ -396,7 +406,7 @@ function SearchPageContent() {
                         <p className="text-gray-600 mb-3 line-clamp-2">{product.description}</p>
                         <div className="flex justify-between items-center">
                           <span className="text-lg font-bold text-green-600">
-                            {product.price?.toLocaleString()} ₽
+                            {formatPriceSimple(product.price || 0)}
                           </span>
                           <span className="text-sm text-gray-500">{product.category}</span>
                         </div>
@@ -531,6 +541,7 @@ function SearchPageContent() {
         />
       )}
     </div>
+    </>
   )
 }
 
@@ -547,4 +558,4 @@ export default function SearchPage() {
       <SearchPageContent />
     </Suspense>
   )
-} 
+}

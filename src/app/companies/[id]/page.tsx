@@ -3,32 +3,43 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { getCompany, getCompanyPortfolio, getCompanyReviews, getCompanyTeam, getCompanyAchievements, getCompanyUpdates, isFollowingCompany, followCompany, unfollowCompany, addCompanyReview } from '@/lib/supabase'
+import { getCompany, getCompanyPortfolio, getCompanyProducts, getCompanyReviews, getCompanyTeam, getCompanyAchievements, getCompanyUpdates, isFollowingCompany, followCompany, unfollowCompany, addCompanyReview, getCurrentUser } from '@/lib/supabase'
+import SEOHead from '@/components/SEO/SEOHead'
+import { generateCompanySEO, generateBreadcrumbSchema } from '@/lib/seo'
 
 interface Company {
   id: string
   name: string
   description: string
   industry: string
-  city: string
+  type: string
   email: string
   website: string
   logo_url: string
   cover_image: string
-  founding_year: number
+  founded_year: number
   employee_count: number
-  services: string[]
   verified: boolean
   created_at: string
+  owner_id: string
   rating?: number
   reviews_count?: number
   mission_statement?: string
+  vision_statement?: string
+  values?: string[]
+  specializations?: string[]
+  address?: string
+  phone?: string
+  social_links?: Record<string, string>
+  region_id?: number
+  regions?: { id: number; name: string }
 }
 
 export default function CompanyPage() {
   const { id } = useParams()
   const [company, setCompany] = useState<Company | null>(null)
   const [portfolio, setPortfolio] = useState<any[]>([])
+  const [products, setProducts] = useState<any[]>([])
   const [reviews, setReviews] = useState<any[]>([])
   const [team, setTeam] = useState<any[]>([])
   const [achievements, setAchievements] = useState<any[]>([])
@@ -37,6 +48,9 @@ export default function CompanyPage() {
   const [activeTab, setActiveTab] = useState('overview')
   const [isLoading, setIsLoading] = useState(true)
   const [showReviewForm, setShowReviewForm] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [isOwner, setIsOwner] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [reviewData, setReviewData] = useState({
     rating: 5,
     title: '',
@@ -49,36 +63,101 @@ export default function CompanyPage() {
     price_rating: 5
   })
 
+  // Отслеживаем изменения isOwner
+  useEffect(() => {
+    console.log('🔄 isOwner изменился на:', isOwner)
+  }, [isOwner])
+
   useEffect(() => {
     const fetchData = async () => {
       if (!id) return
 
       try {
-        const [
-          companyResult,
-          portfolioResult,
-          reviewsResult,
-          teamResult,
-          achievementsResult,
-          updatesResult,
-          followingResult
-        ] = await Promise.all([
-          getCompany(id as string),
-          getCompanyPortfolio(id as string),
-          getCompanyReviews(id as string),
-          getCompanyTeam(id as string),
-          getCompanyAchievements(id as string),
-          getCompanyUpdates(id as string),
-          isFollowingCompany(id as string)
+        // Загружаем текущего пользователя и компанию параллельно
+        const [userResult, companyResult] = await Promise.all([
+          getCurrentUser(),
+          getCompany(id as string)
         ])
+        
+        console.log('👤 Результат getCurrentUser:', userResult)
+        console.log('🏢 Результат getCompany:', companyResult)
+        
+        if (userResult.user) {
+          setCurrentUser(userResult.user)
+          console.log('👤 Установлен текущий пользователь:', userResult.user.id)
+        }
+        
+        if (companyResult.data) {
+          console.log('🏢 Загружена компания:', companyResult.data.name)
+          console.log('🖼️ Logo URL:', companyResult.data.logo_url || 'не установлен')
+          console.log('🎨 Cover Image:', companyResult.data.cover_image || 'не установлен')
+          console.log('📋 Полные данные компании:', companyResult.data)
+          console.log('🔑 Owner ID компании:', companyResult.data.owner_id)
+          
+          setCompany(companyResult.data)
+          
+          // Проверяем, является ли текущий пользователь владельцем компании
+          const userId = userResult.user?.id
+          const ownerId = companyResult.data.owner_id
+          const isUserOwner = userId && ownerId && userId === ownerId
+          
+          console.log('🔍 Проверка владельца:')
+          console.log('👤 User ID:', userId)
+          console.log('🏢 Owner ID:', ownerId)
+          console.log('✅ isUserOwner:', isUserOwner)
+          
+          setIsOwner(!!isUserOwner)
+          
+          if (isUserOwner) {
+            console.log('✅ Пользователь является владельцем компании')
+          } else {
+            console.log('❌ Пользователь НЕ является владельцем компании')
+          }
+        }
+        
+        // Загружаем портфолио компании
+        try {
+          const portfolioResult = await getCompanyPortfolio(id as string)
+          if (portfolioResult.data) {
+            setPortfolio(portfolioResult.data)
+          }
+        } catch (error) {
+          console.error('Error loading portfolio:', error)
+          setPortfolio([])
+        }
 
-        if (companyResult.data) setCompany(companyResult.data)
-        if (portfolioResult.data) setPortfolio(portfolioResult.data)
-        if (reviewsResult.data) setReviews(reviewsResult.data)
-        if (teamResult.data) setTeam(teamResult.data)
-        if (achievementsResult.data) setAchievements(achievementsResult.data)
-        if (updatesResult.data) setUpdates(updatesResult.data)
-        if (followingResult.data !== undefined) setIsFollowing(followingResult.data)
+        // Загружаем товары компании (только для поставщиков)
+        if (companyResult.data && (companyResult.data.type === 'supplier' || companyResult.data.type === 'both')) {
+          try {
+            const productsResult = await getCompanyProducts(id as string)
+            if (productsResult.data) {
+              setProducts(productsResult.data)
+            }
+          } catch (error) {
+            console.error('Error loading products:', error)
+            setProducts([])
+          }
+        }
+        
+        // Проверяем статус подписки
+        if (userResult.user) {
+          try {
+            const followResult = await isFollowingCompany(id as string)
+            if (followResult.data !== undefined) {
+              setIsFollowing(followResult.data)
+            }
+          } catch (error) {
+            console.error('Error checking follow status:', error)
+            setIsFollowing(false)
+          }
+        }
+        
+        // Остальные данные пока не загружаем (таблицы не созданы)
+        setReviews([])
+        setTeam([])
+        setAchievements([])
+        setUpdates([])
+        
       } catch (error) {
         console.error('Error fetching company data:', error)
       } finally {
@@ -92,11 +171,19 @@ export default function CompanyPage() {
   const handleFollow = async () => {
     try {
       if (isFollowing) {
-        await unfollowCompany(id as string)
-        setIsFollowing(false)
+        const result = await unfollowCompany(id as string)
+        if (!result.error) {
+          setIsFollowing(false)
+        } else {
+          console.error('Error unfollowing company:', result.error)
+        }
       } else {
-        await followCompany(id as string)
-        setIsFollowing(true)
+        const result = await followCompany(id as string)
+        if (!result.error) {
+          setIsFollowing(true)
+        } else {
+          console.error('Error following company:', result.error)
+        }
       }
     } catch (error) {
       console.error('Error following company:', error)
@@ -106,6 +193,11 @@ export default function CompanyPage() {
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
+      // Временно отключаем функционал отзывов
+      // TODO: Добавить таблицу company_reviews в схему БД
+      console.log('Review functionality temporarily disabled')
+      setShowReviewForm(false)
+      /*
       await addCompanyReview({
         company_id: id as string,
         ...reviewData
@@ -114,9 +206,20 @@ export default function CompanyPage() {
       // Refresh reviews
       const reviewsResult = await getCompanyReviews(id as string)
       if (reviewsResult.data) setReviews(reviewsResult.data)
+      */
     } catch (error) {
       console.error('Error submitting review:', error)
     }
+  }
+
+  const handleRemoveTeamMember = async (teamMemberId: string, memberName: string) => {
+    console.log('Team member removal functionality temporarily disabled')
+    // Функция временно отключена - требует исправления импорта
+  }
+
+  const handleLeaveTeam = async () => {
+    console.log('Leave team functionality temporarily disabled')
+    // Функция временно отключена - требует исправления импорта
   }
 
   const renderStars = (rating: number) => {
@@ -134,11 +237,11 @@ export default function CompanyPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="animate-pulse space-y-4">
-          <div className="h-64 bg-gray-200 rounded"></div>
-          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-          <div className="h-32 bg-gray-200 rounded"></div>
+      <div className="container mx-auto px-4 py-8" suppressHydrationWarning>
+        <div className="animate-pulse space-y-4" suppressHydrationWarning>
+          <div className="h-64 bg-gray-200 rounded" suppressHydrationWarning></div>
+          <div className="h-8 bg-gray-200 rounded w-1/3" suppressHydrationWarning></div>
+          <div className="h-32 bg-gray-200 rounded" suppressHydrationWarning></div>
         </div>
       </div>
     )
@@ -154,24 +257,124 @@ export default function CompanyPage() {
     )
   }
 
+  // Генерируем SEO данные
+  const companySEO = company ? generateCompanySEO(company) : null
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: 'Главная', url: '/' },
+    { name: 'Компании', url: '/companies' },
+    { name: company?.name || 'Компания', url: `/companies/${id}` }
+  ])
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
+      {companySEO && (
+                 <SEOHead 
+           structuredData={breadcrumbSchema} 
+         />
+      )}
+      <div className="min-h-screen bg-gray-50" suppressHydrationWarning>
       {/* Обложка и основная информация */}
       <div className="bg-white">
         {/* Обложка */}
         <div className="h-64 bg-gradient-to-r from-blue-600 to-indigo-700 relative overflow-hidden">
+          {(() => {
+            console.log('🎨 Проверка обложки в JSX:', {
+              hasCoverImage: !!company.cover_image,
+              coverImageUrl: company.cover_image,
+              companyName: company.name
+            })
+            return null
+          })()}
           {company.cover_image && (
             <img
               src={company.cover_image}
               alt={company.name}
               className="w-full h-full object-cover"
+              onLoad={() => console.log('✅ Обложка загружена успешно')}
+              onError={(e) => console.error('❌ Ошибка загрузки обложки:', e)}
             />
           )}
-          <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-blue-600/30"></div>
+        </div>
+
+        {/* Название компании под обложкой */}
+        <div className="container mx-auto px-4 py-4 border-b border-gray-200" suppressHydrationWarning>
+          <div className="flex items-center justify-between">
+            {/* Отступ слева равный ширине логотипа (w-32) + отступ (mr-6) */}
+            <div className="flex items-center ml-32 md:ml-38">
+              <h1 className="text-3xl font-bold text-gray-900 mr-3">
+                {company.name}
+              </h1>
+              {company.verified && (
+                <span className="bg-blue-100 text-blue-800 px-3 py-1 text-sm rounded-full">
+                  ✓ Проверено
+                </span>
+              )}
+            </div>
+            
+            {/* Кнопки действий */}
+            <div className="flex space-x-3">
+              <button
+                onClick={handleFollow}
+                className={`px-8 py-3 rounded-lg font-medium transition-colors cursor-pointer min-w-[140px] ${
+                  isFollowing
+                    ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+                style={{
+                  minHeight: '44px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  touchAction: 'manipulation'
+                }}
+              >
+                {isFollowing ? 'Отписаться' : 'Подписаться'}
+              </button>
+
+              {(() => {
+                console.log('🔍 Проверка отображения кнопки редактирования:')
+                console.log('isOwner:', isOwner)
+                console.log('currentUser?.id:', currentUser?.id)
+                console.log('company?.owner_id:', company?.owner_id)
+                console.log('Равенство ID:', currentUser?.id === company?.owner_id)
+                
+                // Дополнительная проверка на всякий случай
+                const shouldShowEditButton = isOwner || (currentUser?.id && company?.owner_id && currentUser.id === company.owner_id)
+                console.log('shouldShowEditButton:', shouldShowEditButton)
+                
+                if (shouldShowEditButton) {
+                  console.log('✅ Показываем кнопку редактирования')
+                  return (
+                    <Link
+                      href={`/companies/${id}/edit`}
+                      className="px-8 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer font-medium min-w-[140px] text-center"
+                      onClick={(e) => {
+                        console.log('🔗 Клик по кнопке редактирования')
+                        console.log('🔗 Переходим на:', `/companies/${id}/edit`)
+                      }}
+                      style={{ 
+                        minHeight: '44px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        touchAction: 'manipulation'
+                      }}
+                    >
+                      Редактировать
+                    </Link>
+                  )
+                } else {
+                  console.log('❌ Не показываем кнопку редактирования')
+                  return null
+                }
+              })()}
+            </div>
+          </div>
         </div>
 
         {/* Профиль компании */}
-        <div className="container mx-auto px-4 py-6">
+        <div className="container mx-auto px-4 py-6" suppressHydrationWarning>
           <div className="flex flex-col md:flex-row items-start md:items-end -mt-20 relative z-10">
             {/* Логотип */}
             <div className="w-32 h-32 bg-white rounded-lg shadow-lg flex items-center justify-center overflow-hidden mb-4 md:mb-0 md:mr-6">
@@ -191,44 +394,18 @@ export default function CompanyPage() {
             {/* Информация о компании */}
             <div className="flex-1">
               <div className="flex flex-col md:flex-row md:items-end justify-between">
-                <div>
-                  <div className="flex items-center mb-2">
-                    <h1 className="text-3xl font-bold text-gray-900 mr-3">
-                      {company.name}
-                    </h1>
-                    {company.verified && (
-                      <span className="bg-blue-100 text-blue-800 px-3 py-1 text-sm rounded-full">
-                        ✓ Проверено
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-lg text-gray-600 mb-2">{company.industry}</p>
+                <div className="mt-4">
+                  <p className="text-lg text-gray-600 mb-2">
+                    {company.type === 'supplier' ? 'Поставщик' : 
+                     company.type === 'contractor' ? 'Подрядчик' : 
+                     company.type === 'both' ? 'Подрядчик и поставщик' : 
+                     company.industry}
+                  </p>
                   <div className="flex items-center text-gray-500 space-x-4">
-                    <span>{company.city}</span>
+                    {company.regions?.name && <span>{company.regions.name}</span>}
                     {company.employee_count && <span>• {company.employee_count} человек</span>}
-                    {company.founding_year && <span>• С {company.founding_year}</span>}
+                    {company.founded_year && <span>• С {company.founded_year}</span>}
                   </div>
-
-                </div>
-
-                {/* Кнопки действий */}
-                <div className="flex space-x-3 mt-4 md:mt-0">
-                  <button
-                    onClick={handleFollow}
-                    className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                      isFollowing
-                        ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
-                  >
-                    {isFollowing ? 'Отписаться' : 'Подписаться'}
-                  </button>
-                  <Link
-                    href={`/companies/${id}/edit`}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Редактировать
-                  </Link>
                 </div>
               </div>
             </div>
@@ -237,11 +414,12 @@ export default function CompanyPage() {
       </div>
 
       {/* Навигация по табам */}
-      <div className="bg-white border-b sticky top-0 z-40">
-        <div className="container mx-auto px-4">
+      <div className="bg-white border-b sticky top-0 z-40" suppressHydrationWarning>
+        <div className="container mx-auto px-4" suppressHydrationWarning>
           <nav className="flex space-x-8">
             {[
               { id: 'overview', label: 'Обзор' },
+              ...(company.type === 'supplier' || company.type === 'both' ? [{ id: 'shop', label: `Магазин${products.length > 0 ? ` (${products.length})` : ''}` }] : []),
               { id: 'portfolio', label: 'Портфолио' },
               { id: 'team', label: 'Команда' },
               { id: 'reviews', label: 'Отзывы' },
@@ -264,7 +442,7 @@ export default function CompanyPage() {
       </div>
 
       {/* Контент */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8" suppressHydrationWarning>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Основной контент */}
           <div className="lg:col-span-2">
@@ -276,17 +454,17 @@ export default function CompanyPage() {
                   <p className="text-gray-700 leading-relaxed">{company.description}</p>
                 </div>
 
-                {/* Услуги */}
-                {company.services && company.services.length > 0 && (
+                {/* Специализации */}
+                {company.specializations && company.specializations.length > 0 && (
                   <div className="bg-white rounded-lg shadow-sm p-6">
-                    <h2 className="text-xl font-semibold mb-4">Услуги</h2>
+                    <h2 className="text-xl font-semibold mb-4">Специализации</h2>
                     <div className="flex flex-wrap gap-2">
-                      {company.services.map((service, index) => (
+                      {company.specializations.map((spec, index) => (
                         <span
                           key={index}
                           className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
                         >
-                          {service}
+                          {spec}
                         </span>
                       ))}
                     </div>
@@ -313,22 +491,230 @@ export default function CompanyPage() {
               </div>
             )}
 
+            {activeTab === 'shop' && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-semibold">Магазин товаров</h2>
+                  {isOwner && (
+                    <Link
+                      href="/products/create"
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Добавить товар
+                    </Link>
+                  )}
+                </div>
+
+                {/* Фильтр по категориям */}
+                {products.length > 0 && (
+                  <div className="mb-6">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setSelectedCategory('')}
+                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                          selectedCategory === ''
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        Все ({products.length})
+                      </button>
+                      {Array.from(new Set(products.map(p => p.category))).map(category => {
+                        const categoryProducts = products.filter(p => p.category === category)
+                        const categoryNames: Record<string, string> = {
+                          building_materials: 'Строительные материалы',
+                          tools: 'Инструменты',
+                          equipment: 'Оборудование',
+                          plumbing: 'Сантехника',
+                          electrical: 'Электрика',
+                          finishing_materials: 'Отделочные материалы',
+                          furniture: 'Мебель',
+                          other: 'Другое'
+                        }
+                        return (
+                          <button
+                            key={category}
+                            onClick={() => setSelectedCategory(category)}
+                            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                              selectedCategory === category
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {categoryNames[category] || category} ({categoryProducts.length})
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                
+                {products.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {products
+                      .filter(product => selectedCategory === '' || product.category === selectedCategory)
+                      .map((product: any) => (
+                      <Link
+                        key={product.id}
+                        href={`/products/${product.id}`}
+                        className="group border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
+                      >
+                        {/* Изображение товара */}
+                        <div className="aspect-square bg-gray-100 relative overflow-hidden">
+                          {product.images && product.images.length > 0 ? (
+                            <img
+                              src={product.images[0]}
+                              alt={product.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          )}
+                          
+                          {/* Статус наличия */}
+                          <div className="absolute top-2 right-2">
+                            {(product.stock_quantity || 0) > 0 ? (
+                              <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">
+                                В наличии
+                              </span>
+                            ) : (
+                              <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-medium">
+                                Нет в наличии
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Скидка */}
+                          {product.discount && (
+                            <div className="absolute top-2 left-2">
+                              <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">
+                                -{product.discount}%
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Информация о товаре */}
+                        <div className="p-4">
+                          <h3 className="font-medium text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                            {product.name}
+                          </h3>
+                          
+                          <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                            {product.description}
+                          </p>
+                          
+                          {/* Цена */}
+                          <div className="flex items-baseline gap-2">
+                            {product.discount ? (
+                              <>
+                                <span className="text-lg font-bold text-red-600">
+                                  {new Intl.NumberFormat('ru-RU', {
+                                    style: 'currency',
+                                    currency: 'RUB',
+                                    minimumFractionDigits: 0
+                                  }).format(product.price - (product.price * product.discount / 100))}
+                                </span>
+                                <span className="text-sm text-gray-500 line-through">
+                                  {new Intl.NumberFormat('ru-RU', {
+                                    style: 'currency',
+                                    currency: 'RUB',
+                                    minimumFractionDigits: 0
+                                  }).format(product.price)}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-lg font-bold text-gray-900">
+                                {new Intl.NumberFormat('ru-RU', {
+                                  style: 'currency',
+                                  currency: 'RUB',
+                                  minimumFractionDigits: 0
+                                }).format(product.price)}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Категория */}
+                          <div className="mt-2">
+                            <span className="inline-block bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">
+                              {(() => {
+                                const categories: Record<string, string> = {
+                                  building_materials: 'Строительные материалы',
+                                  tools: 'Инструменты',
+                                  equipment: 'Оборудование',
+                                  plumbing: 'Сантехника',
+                                  electrical: 'Электрика',
+                                  finishing_materials: 'Отделочные материалы',
+                                  furniture: 'Мебель',
+                                  other: 'Другое'
+                                }
+                                return categories[product.category] || product.category
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="max-w-md mx-auto">
+                      <svg className="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                      </svg>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Магазин пуст</h3>
+                      <p className="text-gray-500 mb-4">
+                        {isOwner 
+                          ? 'Добавьте первый товар в ваш магазин' 
+                          : 'В магазине этой компании пока нет товаров'
+                        }
+                      </p>
+                      {isOwner && (
+                        <Link
+                          href="/products/create"
+                          className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Добавить товар
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {activeTab === 'portfolio' && (
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-semibold">Портфолио проектов</h2>
-                  <Link
-                    href={`/companies/${id}/portfolio/add`}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Добавить проект
-                  </Link>
+                  <div className="flex space-x-3">
+                    {portfolio.length > 0 && (
+                      <Link
+                        href={`/companies/${id}/portfolio`}
+                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Просмотреть все ({portfolio.length})
+                      </Link>
+                    )}
+                    {isOwner && (
+                      <Link
+                        href={`/companies/${id}/portfolio/add`}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Добавить проект
+                      </Link>
+                    )}
+                  </div>
                 </div>
                 
                 {portfolio.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {portfolio.map((project: any) => (
-                      <div key={project.id} className="border border-gray-200 rounded-lg p-4">
+                    {portfolio.slice(0, 4).map((project: any) => (
+                      <div key={project.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                         {project.images && project.images.length > 0 && (
                           <img
                             src={project.images[0]}
@@ -336,14 +722,26 @@ export default function CompanyPage() {
                             className="w-full h-48 object-cover rounded-lg mb-4"
                           />
                         )}
-                        <h3 className="font-semibold text-lg mb-2">{project.title}</h3>
-                        <p className="text-gray-600 mb-2">{project.description}</p>
-                        <div className="flex justify-between items-center text-sm text-gray-500">
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="font-semibold text-lg">{project.title}</h3>
+                          {project.featured && (
+                            <span className="bg-yellow-100 text-yellow-800 px-2 py-1 text-xs rounded-full ml-2">
+                              Рекомендуемый
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-600 mb-3 line-clamp-2">{project.description}</p>
+                        <div className="flex justify-between items-center text-sm text-gray-500 mb-2">
                           <span>{project.category}</span>
                           <span>{project.location}</span>
                         </div>
+                        {project.start_date && project.end_date && (
+                          <div className="text-sm text-gray-500 mb-2">
+                            {new Date(project.start_date).toLocaleDateString('ru-RU')} - {new Date(project.end_date).toLocaleDateString('ru-RU')}
+                          </div>
+                        )}
                         {project.project_value && (
-                          <p className="text-green-600 font-medium mt-2">
+                          <p className="text-green-600 font-medium">
                             {project.project_value.toLocaleString('ru-RU')} ₽
                           </p>
                         )}
@@ -352,7 +750,21 @@ export default function CompanyPage() {
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <p className="text-gray-500">Портфолио пусто</p>
+                    <div className="max-w-md mx-auto">
+                      <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Портфолио пусто</h3>
+                      <p className="text-gray-500 mb-4">Здесь будут отображаться проекты компании</p>
+                      {isOwner && (
+                        <Link
+                          href={`/companies/${id}/portfolio/add`}
+                          className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Добавить первый проект
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -373,7 +785,7 @@ export default function CompanyPage() {
                 {team.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {team.map((member: any) => (
-                      <div key={member.id} className="text-center p-4 border border-gray-200 rounded-lg">
+                      <div key={member.id} className="text-center p-4 border border-gray-200 rounded-lg relative">
                         <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
                           {member.avatar_url ? (
                             <img
@@ -389,11 +801,34 @@ export default function CompanyPage() {
                         </div>
                         <h3 className="font-medium">{member.name}</h3>
                         <p className="text-sm text-gray-600">{member.position}</p>
+                        {member.bio && (
+                          <p className="text-xs text-gray-500 mt-1">{member.bio}</p>
+                        )}
                         {member.is_key_person && (
                           <span className="inline-block mt-2 bg-yellow-100 text-yellow-800 px-2 py-1 text-xs rounded">
                             Ключевой сотрудник
                           </span>
                         )}
+                        
+                        {/* Кнопки действий */}
+                        <div className="mt-3 space-y-2">
+                          {isOwner && (
+                            <button
+                              onClick={() => handleRemoveTeamMember(member.id, member.name)}
+                              className="w-full text-xs px-2 py-1 text-red-600 border border-red-300 rounded hover:bg-red-50 transition-colors"
+                            >
+                              Удалить
+                            </button>
+                          )}
+                          {currentUser && member.user_id === currentUser.id && !isOwner && (
+                            <button
+                              onClick={() => handleLeaveTeam()}
+                              className="w-full text-xs px-2 py-1 text-orange-600 border border-orange-300 rounded hover:bg-orange-50 transition-colors"
+                            >
+                              Покинуть команду
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -419,14 +854,14 @@ export default function CompanyPage() {
                   </div>
 
                   {/* Статистика отзывов */}
-                  {company.reviews_count > 0 && (
+                  {(company.reviews_count || 0) > 0 && (
                     <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="flex items-center">
-                            <span className="text-3xl font-bold mr-2">{company.rating.toFixed(1)}</span>
+                            <span className="text-3xl font-bold mr-2">{(company.rating || 0).toFixed(1)}</span>
                             <div className="flex items-center">
-                              {renderStars(Math.round(company.rating))}
+                              {renderStars(Math.round(company.rating || 0))}
                             </div>
                           </div>
                           <p className="text-gray-600">{company.reviews_count} отзывов</p>
@@ -689,17 +1124,13 @@ export default function CompanyPage() {
                   <span className="font-medium">{portfolio.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Команда:</span>
-                  <span className="font-medium">{team.length} человек</span>
-                </div>
-                <div className="flex justify-between">
                   <span className="text-gray-600">Отзывы:</span>
-                  <span className="font-medium">{company.reviews_count}</span>
+                  <span className="font-medium">{company.reviews_count || 0}</span>
                 </div>
-                {company.founding_year && (
+                {company.founded_year && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">Опыт работы:</span>
-                    <span className="font-medium">{new Date().getFullYear() - company.founding_year} лет</span>
+                    <span className="font-medium">{new Date().getFullYear() - company.founded_year} лет</span>
                   </div>
                 )}
               </div>
@@ -710,7 +1141,7 @@ export default function CompanyPage() {
 
       {/* Модальное окно для отзыва */}
       {showReviewForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gradient-to-br from-white/80 to-blue-100/90 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-semibold mb-4">Оставить отзыв</h3>
             <form onSubmit={handleReviewSubmit} className="space-y-4">
@@ -774,5 +1205,6 @@ export default function CompanyPage() {
         </div>
       )}
     </div>
+    </>
   )
 }

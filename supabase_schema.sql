@@ -1,3 +1,19 @@
+-- Таблица регионов РФ
+CREATE TABLE IF NOT EXISTS regions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Таблица городов
+CREATE TABLE IF NOT EXISTS cities (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  region_id UUID REFERENCES regions(id) ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(region_id, name)
+);
+
 -- Таблица профилей пользователей (расширение auth.users)
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
@@ -19,8 +35,10 @@ CREATE TABLE IF NOT EXISTS companies (
   type TEXT CHECK (type IN ('contractor', 'supplier', 'both')) DEFAULT 'contractor',
   website TEXT,
   logo_url TEXT,
+  cover_image TEXT,
   address TEXT,
   location TEXT,
+  region_id UUID REFERENCES regions(id),
   phone TEXT,
   email TEXT,
   owner_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
@@ -68,7 +86,9 @@ CREATE TABLE IF NOT EXISTS projects (
   name TEXT NOT NULL,
   description TEXT NOT NULL,
   category TEXT,
-  location TEXT,
+  location TEXT, -- оставляем для обратной совместимости
+  region_id UUID REFERENCES regions(id) ON DELETE SET NULL,
+  city_id UUID REFERENCES cities(id) ON DELETE SET NULL,
   budget DECIMAL,
   deadline DATE,
   status TEXT CHECK (status IN ('planning', 'active', 'completed', 'on_hold')) DEFAULT 'planning',
@@ -123,6 +143,20 @@ CREATE TABLE IF NOT EXISTS applications (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(tender_id, contractor_id) -- один подрядчик может подать только одну заявку на тендер
+);
+
+-- Таблица заявок на проекты
+CREATE TABLE IF NOT EXISTS project_applications (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  project_id UUID REFERENCES projects(id) ON DELETE CASCADE NOT NULL,
+  company_id UUID REFERENCES companies(id) ON DELETE CASCADE NOT NULL,
+  subject TEXT NOT NULL,
+  description TEXT NOT NULL,
+  document_url TEXT,
+  status TEXT CHECK (status IN ('pending', 'accepted', 'rejected', 'withdrawn')) DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(project_id, company_id) -- одна компания может подать только одну заявку на проект
 );
 
 -- Таблица сообщений
@@ -204,6 +238,7 @@ ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_materials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_companies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE project_applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profile_experience ENABLE ROW LEVEL SECURITY;
@@ -257,9 +292,9 @@ CREATE POLICY "Sellers can insert own products" ON products
 CREATE POLICY "Sellers can update own products" ON products
   FOR UPDATE USING (auth.uid() = seller_id);
 
--- Политики для projects (только владельцы могут видеть и управлять)
-CREATE POLICY "Users can view own projects" ON projects
-  FOR SELECT USING (auth.uid() = owner_id);
+-- Политики для projects (все могут читать, владельцы могут управлять)
+CREATE POLICY "Anyone can view projects" ON projects
+  FOR SELECT USING (true);
 
 CREATE POLICY "Users can insert own projects" ON projects
   FOR INSERT WITH CHECK (auth.uid() = owner_id);
@@ -323,6 +358,43 @@ CREATE POLICY "Contractors can insert applications" ON applications
 
 CREATE POLICY "Contractors can update own applications" ON applications
   FOR UPDATE USING (auth.uid() = contractor_id);
+
+-- Политики для project_applications
+CREATE POLICY "Companies can view own project applications" ON project_applications
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM companies 
+      WHERE companies.id = project_applications.company_id 
+      AND companies.owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Project owners can view applications" ON project_applications
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM projects 
+      WHERE projects.id = project_applications.project_id 
+      AND projects.owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Companies can insert project applications" ON project_applications
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM companies 
+      WHERE companies.id = project_applications.company_id 
+      AND companies.owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Companies can update own project applications" ON project_applications
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM companies 
+      WHERE companies.id = project_applications.company_id 
+      AND companies.owner_id = auth.uid()
+    )
+  );
 
 -- Политики для messages
 CREATE POLICY "Users can view own messages" ON messages
@@ -404,6 +476,10 @@ CREATE TRIGGER update_applications_updated_at
   BEFORE UPDATE ON applications
   FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
 
+CREATE TRIGGER update_project_applications_updated_at
+  BEFORE UPDATE ON project_applications
+  FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
+
 CREATE TRIGGER update_orders_updated_at
   BEFORE UPDATE ON orders
   FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
@@ -420,14 +496,21 @@ CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_products_status ON products(status);
 CREATE INDEX IF NOT EXISTS idx_projects_owner_id ON projects(owner_id);
 CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
+CREATE INDEX IF NOT EXISTS idx_projects_region_id ON projects(region_id);
+CREATE INDEX IF NOT EXISTS idx_projects_city_id ON projects(city_id);
 CREATE INDEX IF NOT EXISTS idx_project_materials_project_id ON project_materials(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_materials_product_id ON project_materials(product_id);
 CREATE INDEX IF NOT EXISTS idx_project_companies_project_id ON project_companies(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_companies_company_id ON project_companies(company_id);
 CREATE INDEX IF NOT EXISTS idx_applications_tender_id ON applications(tender_id);
 CREATE INDEX IF NOT EXISTS idx_applications_contractor_id ON applications(contractor_id);
+CREATE INDEX IF NOT EXISTS idx_project_applications_project_id ON project_applications(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_applications_company_id ON project_applications(company_id);
 CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
 CREATE INDEX IF NOT EXISTS idx_messages_receiver_id ON messages(receiver_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_buyer_id ON orders(buyer_id);
-CREATE INDEX IF NOT EXISTS idx_orders_seller_id ON orders(seller_id); 
+CREATE INDEX IF NOT EXISTS idx_orders_seller_id ON orders(seller_id);
+CREATE INDEX IF NOT EXISTS idx_regions_name ON regions(name);
+CREATE INDEX IF NOT EXISTS idx_cities_region_id ON cities(region_id);
+CREATE INDEX IF NOT EXISTS idx_cities_name ON cities(name);
