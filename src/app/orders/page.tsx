@@ -45,7 +45,7 @@ export default function OrdersPage() {
 
   const loadOrders = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { user } = await supabase.auth.getUser()
       if (!user) {
         setError('Необходима авторизация')
         return
@@ -427,4 +427,4 @@ export default function OrdersPage() {
       )}
     </main>
   )
-} 
+}

@@ -144,29 +144,21 @@ class SupabaseProxyClient {
           
           // Возвращаем в формате Supabase
           return {
-            data: {
-              user: responseData.user,
-              session: {
-                access_token: responseData.access_token,
-                refresh_token: responseData.refresh_token,
-                expires_in: responseData.expires_in,
-                token_type: responseData.token_type,
-                user: responseData.user
-              }
-            },
+            access_token: responseData.access_token,
+            refresh_token: responseData.refresh_token,
+            user: responseData.user,
             error: null
           }
         } else {
           // Возвращаем данные как есть, если нет токена (может быть требуется подтверждение email)
           return {
-            data: responseData,
+            user: responseData.user,
             error: responseData.error || null
           }
         }
       } catch (error) {
         console.error('❌ Sign up error:', error)
         return { 
-          data: null,
           error: { message: error instanceof Error ? error.message : 'Ошибка сети' }
         }
       }
@@ -200,10 +192,10 @@ class SupabaseProxyClient {
     },
 
     // Получение текущего пользователя
-    getUser: async (): Promise<{ data: { user: any }, error?: any }> => {
+    getUser: async (): Promise<{ user: any, error?: any }> => {
       try {
         if (!this.accessToken) {
-          return { data: { user: null }, error: { message: 'No access token' } }
+          return { user: null, error: { message: 'No access token' } }
         }
         
         const response = await this.makeRequest('auth/v1/user', {
@@ -211,37 +203,37 @@ class SupabaseProxyClient {
         })
         
         const data = await response.json()
-        return { data: { user: data }, error: response.ok ? null : data }
+        return { user: data, error: response.ok ? null : data }
       } catch (error) {
         console.error('❌ Get user error:', error)
-        return { data: { user: null }, error }
+        return { user: null, error }
       }
     },
 
     // Получение сессии
-    getSession: async (): Promise<{ data: { session: any }, error?: any }> => {
+    getSession: async (): Promise<{ session: any, error?: any }> => {
       try {
         if (!this.accessToken) {
-          return { data: { session: null }, error: null }
+          return { session: null, error: null }
         }
         
         // Проверяем валидность токена
         const userResponse = await this.auth.getUser()
         if (userResponse.error) {
-          return { data: { session: null }, error: userResponse.error }
+          return { session: null, error: userResponse.error }
         }
         
         const session = {
           access_token: this.accessToken,
           refresh_token: this.refreshToken,
-          user: userResponse.data.user,
+          user: userResponse.user,
           expires_at: null // TODO: можно добавить обработку истечения
         }
         
-        return { data: { session }, error: null }
+        return { session, error: null }
       } catch (error) {
         console.error('❌ Get session error:', error)
-        return { data: { session: null }, error }
+        return { session: null, error }
       }
     },
 
@@ -287,7 +279,7 @@ class SupabaseProxyClient {
       // Проверяем текущую сессию при подписке
       if (typeof window !== 'undefined') {
         setTimeout(async () => {
-          const { data: { session } } = await this.auth.getSession()
+          const { session } = await this.auth.getSession()
           if (session) {
             callback('SIGNED_IN', session)
           } else {
@@ -326,6 +318,9 @@ class SupabaseQueryBuilder {
   private table: string
   private makeRequest: (path: string, options?: RequestInit, useServiceRole?: boolean) => Promise<Response>
   private queryParams: URLSearchParams = new URLSearchParams()
+  private insertValues: any
+  private updateValues: any
+  private operation: string = 'select'
   private selectColumns = '*'
   private isSingle: boolean = false
   private isMaybeSingle: boolean = false
@@ -407,6 +402,10 @@ class SupabaseQueryBuilder {
 
   single() {
     this.queryParams.set('limit', '1')
+    // Добавляем order по умолчанию, если не указан
+    if (!this.queryParams.has('order')) {
+      this.queryParams.set('order', 'id')
+    }
     this.isSingle = true
     this.isMaybeSingle = false
     return this
@@ -414,6 +413,10 @@ class SupabaseQueryBuilder {
 
   maybeSingle() {
     this.queryParams.set('limit', '1')
+    // Добавляем order по умолчанию, если не указан
+    if (!this.queryParams.has('order')) {
+      this.queryParams.set('order', 'id')
+    }
     this.isSingle = true
     this.isMaybeSingle = true
     return this
@@ -426,6 +429,15 @@ class SupabaseQueryBuilder {
 
   async execute(): Promise<SupabaseResponse> {
     try {
+      // Выполняем соответствующую операцию
+      if (this.operation === 'insert') {
+        return this.executeInsert()
+      }
+      if (this.operation === 'update') {
+        return this.executeUpdate()
+      }
+      
+      // Обычный SELECT запрос
       const path = `rest/v1/${this.table}?${this.queryParams.toString()}`
       const response = await this.makeRequest(path, { method: 'GET' })
       
@@ -459,9 +471,14 @@ class SupabaseQueryBuilder {
         statusText: response.statusText
       }
     } catch (error) {
+      console.error('execute error:', error)
       return {
         data: null,
-        error,
+        error: {
+          message: error instanceof Error ? error.message : 'Unknown error occurred',
+          code: 'PROXY_ERROR', 
+          details: error
+        },
         status: 500,
         statusText: 'Internal Error'
       }
@@ -469,52 +486,175 @@ class SupabaseQueryBuilder {
   }
 
   // Методы для выполнения запросов
-  async insert(values: any | any[]): Promise<SupabaseResponse> {
+  insert(values: any | any[]) {
+    this.insertValues = values
+    this.operation = 'insert'
+    return this
+  }
+
+  async executeInsert(): Promise<SupabaseResponse> {
     try {
-      const path = `rest/v1/${this.table}`
+      let path = `rest/v1/${this.table}`
+      if (this.queryParams.has('select')) {
+        path += `?${this.queryParams.toString()}`
+      }
+      
       const response = await this.makeRequest(path, {
         method: 'POST',
-        body: JSON.stringify(values)
+        body: JSON.stringify(this.insertValues)
       })
       
-      const data = await response.json()
+      // Обрабатываем ответ в зависимости от статуса
+      let data = null
+      if (response.status === 204) {
+        // 204 No Content - успешная операция без возврата данных
+        data = this.isSingle ? {} : []
+      } else if (response.status === 201 || response.status === 200) {
+        // 201 Created или 200 OK - читаем содержимое
+        const text = await response.text()
+        if (text) {
+          try {
+            data = JSON.parse(text)
+          } catch (parseError) {
+            console.warn('Failed to parse response as JSON:', text)
+            data = text
+          }
+        }
+      } else {
+        // Для ошибок пытаемся прочитать body
+        const text = await response.text()
+        if (text) {
+          try {
+            data = JSON.parse(text)
+          } catch (parseError) {
+            console.warn('Failed to parse error response as JSON:', text)
+            data = { message: text }
+          }
+        } else {
+          data = { message: `HTTP ${response.status}: ${response.statusText}` }
+        }
+      }
+      
+      // Если используется single() или maybeSingle(), извлекаем первый элемент из массива
+      let resultData = data
+      if (this.isSingle && response.ok && Array.isArray(data)) {
+        if (data.length === 0) {
+          if (this.isMaybeSingle) {
+            resultData = null
+          } else {
+            return {
+              data: null,
+              error: { message: 'No rows found', code: 'PGRST116' },
+              status: 406,
+              statusText: 'Not Acceptable'
+            }
+          }
+        } else {
+          resultData = data[0]
+        }
+      }
       
       return {
-        data: response.ok ? data : null,
+        data: response.ok ? resultData : null,
         error: response.ok ? null : data,
         status: response.status,
         statusText: response.statusText
       }
     } catch (error) {
+      console.error('executeInsert error:', error)
       return {
         data: null,
-        error,
+        error: {
+          message: error instanceof Error ? error.message : 'Unknown error occurred',
+          code: 'PROXY_ERROR',
+          details: error
+        },
         status: 500,
         statusText: 'Internal Error'
       }
     }
   }
 
-  async update(values: any): Promise<SupabaseResponse> {
+  update(values: any) {
+    this.updateValues = values
+    this.operation = 'update'
+    return this
+  }
+
+  async executeUpdate(): Promise<SupabaseResponse> {
     try {
       const path = `rest/v1/${this.table}?${this.queryParams.toString()}`
       const response = await this.makeRequest(path, {
         method: 'PATCH',
-        body: JSON.stringify(values)
+        body: JSON.stringify(this.updateValues)
       })
       
-      const data = await response.json()
+      // Обрабатываем ответ в зависимости от статуса
+      let data = null
+      if (response.status === 204) {
+        // 204 No Content - успешное обновление без возврата данных
+        // Возвращаем null для совместимости с Supabase клиентом
+        data = null
+      } else if (response.status !== 200) {
+        // Для ошибок пытаемся прочитать body
+        const text = await response.text()
+        if (text) {
+          try {
+            data = JSON.parse(text)
+          } catch (parseError) {
+            console.warn('Failed to parse error response as JSON:', text)
+            data = { message: text }
+          }
+        } else {
+          data = { message: `HTTP ${response.status}: ${response.statusText}` }
+        }
+      } else {
+        // 200 OK - читаем содержимое
+        const text = await response.text()
+        if (text) {
+          try {
+            data = JSON.parse(text)
+          } catch (parseError) {
+            console.warn('Failed to parse response as JSON:', text)
+            data = text
+          }
+        }
+      }
+      
+      // Если используется single() или maybeSingle(), извлекаем первый элемент из массива
+      let resultData = data
+      if (this.isSingle && response.ok && Array.isArray(data)) {
+        if (data.length === 0) {
+          if (this.isMaybeSingle) {
+            resultData = null
+          } else {
+            return {
+              data: null,
+              error: { message: 'No rows found', code: 'PGRST116' },
+              status: 406,
+              statusText: 'Not Acceptable'
+            }
+          }
+        } else {
+          resultData = data[0]
+        }
+      }
       
       return {
-        data: response.ok ? data : null,
+        data: response.ok ? resultData : null,
         error: response.ok ? null : data,
         status: response.status,
         statusText: response.statusText
       }
     } catch (error) {
+      console.error('executeUpdate error:', error)
       return {
         data: null,
-        error,
+        error: {
+          message: error instanceof Error ? error.message : 'Unknown error occurred',
+          code: 'PROXY_ERROR',
+          details: error
+        },
         status: 500,
         statusText: 'Internal Error'
       }
@@ -535,9 +675,14 @@ class SupabaseQueryBuilder {
         statusText: response.statusText
       }
     } catch (error) {
+      console.error('delete error:', error)
       return {
         data: null,
-        error,
+        error: {
+          message: error instanceof Error ? error.message : 'Unknown error occurred',
+          code: 'PROXY_ERROR',
+          details: error
+        },
         status: 500,
         statusText: 'Internal Error'
       }
@@ -568,11 +713,11 @@ class SupabaseStorageClient {
       const data = await response.json()
       
       return {
-        data: response.ok ? data : null,
+        path: response.ok ? data.path : null,
         error: response.ok ? null : data
       }
     } catch (error) {
-      return { data: null, error }
+      return { path: null, error }
     }
   }
 
@@ -584,13 +729,13 @@ class SupabaseStorageClient {
       
       if (response.ok) {
         const blob = await response.blob()
-        return { data: blob, error: null }
+        return { blob, error: null }
       } else {
         const error = await response.json()
-        return { data: null, error }
+        return { blob: null, error }
       }
     } catch (error) {
-      return { data: null, error }
+      return { blob: null, error }
     }
   }
 

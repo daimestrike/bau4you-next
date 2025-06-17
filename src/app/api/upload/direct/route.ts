@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
       )
       
       // Пробуем получить пользователя с токеном
-      const { data: { user: tokenUser }, error: tokenError } = await authenticatedSupabase.auth.getUser()
+      const { user: tokenUser, error: tokenError } = await authenticatedSupabase.auth.getUser()
       if (tokenUser && !tokenError) {
         console.log('✅ Token authentication successful:', tokenUser.email)
         user = tokenUser

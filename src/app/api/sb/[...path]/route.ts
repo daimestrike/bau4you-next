@@ -88,13 +88,10 @@ async function handleRequest(request: NextRequest, { params }: { params: Promise
     })
     
     console.log('📡 Supabase Response:', response.status, response.statusText)
-    
-    // Получаем ответ
-    const responseData = await response.text()
-    
+
     // Создаем ответ с теми же заголовками
     const responseHeaders = new Headers()
-    
+
     // Копируем важные заголовки ответа
     const responseHeadersToKeep = [
       'content-type',
@@ -115,6 +112,21 @@ async function handleRequest(request: NextRequest, { params }: { params: Promise
     responseHeaders.set('access-control-allow-origin', '*')
     responseHeaders.set('access-control-allow-methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
     responseHeaders.set('access-control-allow-headers', 'authorization, x-client-info, apikey, content-type, x-use-service-role')
+    
+    // Получаем ответ
+    let responseData = null
+    
+    // Handle 204 No Content responses properly - они не должны иметь тело
+    if (response.status === 204) {
+      return new NextResponse(null, {
+        status: 204,
+        statusText: response.statusText,
+        headers: responseHeaders
+      })
+    } else {
+      // Для всех остальных статусов читаем тело ответа
+      responseData = await response.text()
+    }
     
     return new NextResponse(responseData, {
       status: response.status,
@@ -162,4 +174,4 @@ export async function OPTIONS(request: NextRequest, context: { params: Promise<{
       'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type, x-use-service-role'
     }
   })
-} 
+}

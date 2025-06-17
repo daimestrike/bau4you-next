@@ -126,6 +126,7 @@ export default function CartPage() {
   }
 
   const getItemPrice = (item: CartItem) => {
+    if (!item.products) return 0
     return item.products.discount_price || item.products.price
   }
 
@@ -271,10 +272,10 @@ export default function CartPage() {
               <div className="flex gap-4">
                 {/* Изображение товара */}
                 <div className="w-20 h-20 flex-shrink-0">
-                  {item.products.images && item.products.images.length > 0 ? (
+                  {item.products && item.products.images && item.products.images.length > 0 ? (
                     <Image
                       src={item.products.images[0]}
-                      alt={item.products.name}
+                      alt={item.products?.name || 'Product'}
                       width={80}
                       height={80}
                       className="w-full h-full object-cover rounded-md"
@@ -293,11 +294,11 @@ export default function CartPage() {
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <h3 className="font-medium text-gray-900 mb-1">
-                        <Link href={`/products/${item.products.id}`} className="hover:text-blue-600">
-                          {item.products.name}
+                        <Link href={`/products/${item.products?.id || '#'}`} className="hover:text-blue-600">
+                          {item.products?.name || 'Неизвестный товар'}
                         </Link>
                       </h3>
-                      {item.products.companies && (
+                      {item.products?.companies && (
                         <p className="text-sm text-gray-600">
                           от {item.products.companies.name}
                         </p>
@@ -321,7 +322,7 @@ export default function CartPage() {
                       <span className="text-lg font-semibold text-gray-900">
                         {formatPrice(getItemPrice(item))}
                       </span>
-                      {item.products.discount_price && (
+                      {item.products?.discount_price && (
                         <span className="text-sm text-gray-500 line-through">
                           {formatPrice(item.products.price)}
                         </span>
@@ -342,7 +343,7 @@ export default function CartPage() {
                       </span>
                       <button
                         onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                        disabled={updating === item.id || item.quantity >= item.products.stock_quantity}
+                        disabled={updating === item.id || item.quantity >= (item.products?.stock_quantity || 0)}
                         className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         +
@@ -403,4 +404,4 @@ export default function CartPage() {
       </div>
     </main>
   )
-} 
+}

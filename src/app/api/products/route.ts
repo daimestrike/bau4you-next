@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
         })
         
         const authPromise = supabase.auth.getUser(token)
-        const { data: { user }, error: authError } = await Promise.race([
+        const { user, error: authError } = await Promise.race([
           authPromise,
           timeoutPromise
         ]) as any
@@ -110,4 +110,4 @@ export async function POST(request: NextRequest) {
     console.error('❌ Unexpected error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-} 
+}

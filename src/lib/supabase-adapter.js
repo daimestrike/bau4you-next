@@ -32,7 +32,7 @@ export const clearInvalidTokens = async () => {
 // Функция для проверки и исправления сессии
 export const validateSession = async () => {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession()
+    const { session, error } = await supabase.auth.getSession()
     
     if (error) {
       console.error('Session validation error:', error)
@@ -263,7 +263,7 @@ export const createProduct = async (productData) => {
 
 export const getCurrentUser = async () => {
   try {
-    const { data: { user }, error } = await supabase.auth.getUser()
+    const { user, error } = await supabase.auth.getUser()
     if (error) throw error
     return { data: user, error: null }
   } catch (error) {
@@ -276,7 +276,7 @@ export const isFollowingCompany = async (companyId) => {
   try {
     await validateSession()
     
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await supabase.auth.getUser()
     if (!user) throw new Error('Пользователь не авторизован')
     
     const response = await supabase
@@ -566,7 +566,7 @@ export const uploadCommercialProposalFile = async (file, title, note = null) => 
     console.log('✅ User authenticated:', user.email)
     
     // Получаем токен авторизации для прокси запроса
-    const { data: { session } } = await supabase.auth.getSession()
+    const { session } = await supabase.auth.getSession()
     if (!session?.access_token) {
       throw new Error('Нет токена авторизации')
     }
@@ -620,4 +620,4 @@ export const uploadCommercialProposalFile = async (file, title, note = null) => 
     console.error('❌ Error uploading commercial proposal file:', error)
     return { data: null, error }
   }
-} 
+}

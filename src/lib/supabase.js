@@ -34,7 +34,7 @@ export const clearInvalidTokens = async () => {
 // Функция для проверки и исправления сессии
 export const validateSession = async () => {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession()
+    const { session, error } = await supabase.auth.getSession()
     
     if (error) {
       console.error('Session validation error:', error)
@@ -257,7 +257,7 @@ export const createProduct = async (productData) => {
 // Дополнительные функции для компаний
 export const getCurrentUser = async () => {
   try {
-    const { data: { user }, error } = await supabase.auth.getUser()
+    const { user, error } = await supabase.auth.getUser()
     if (error) throw error
     return { user, error: null }
   } catch (error) {
@@ -265,6 +265,15 @@ export const getCurrentUser = async () => {
     const errorMessage = error?.message || ''
     if (!errorMessage.includes('Auth session missing')) {
       console.error('Error getting current user:', error)
+      console.error('getCurrentUser error details:', {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+        stack: error?.stack,
+        name: error?.name,
+        status: error?.status
+      })
     }
     return { user: null, error }
   }
@@ -358,7 +367,21 @@ export const getCartItems = async () => {
     
     const { data, error } = await supabase
       .from('cart_items')
-      .select('*, products(*)')
+      .select(`
+        *,
+        products (
+          id,
+          name,
+          price,
+          discount_price,
+          images,
+          stock_quantity,
+          status,
+          companies (
+            name
+          )
+        )
+      `)
       .eq('user_id', user.id)
     
     if (error) throw error
@@ -371,13 +394,24 @@ export const getCartItems = async () => {
 
 export const signIn = async (email, password) => {
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const response = await supabase.auth.signInWithPassword({
       email,
       password
     })
     
-    if (error) throw error
-    return { data, error: null }
+    if (response.error) throw response.error
+    
+    // Возвращаем в ожидаемом формате с data
+    return { 
+      data: {
+        user: response.user,
+        session: {
+          access_token: response.access_token,
+          refresh_token: response.refresh_token
+        }
+      }, 
+      error: null 
+    }
   } catch (error) {
     console.error('Error signing in:', error)
     return { data: null, error }
@@ -428,7 +462,7 @@ export const signUp = async (email, password, userData = {}) => {
     if (signInError) {
       console.error('❌ Ошибка при входе после регистрации:', signInError)
       // Возвращаем успех регистрации, даже если автоматический вход не удался
-      return { data, error: null }
+      return { data: { user: response.user, session: null }, error: null }
     }
     
     console.log('✅ Успешный вход после регистрации')
@@ -499,41 +533,65 @@ export const updateProfile = async (userId, profileData) => {
 export const addToCart = async (productId, quantity = 1) => {
   try {
     const { user } = await getCurrentUser()
-    if (!user) throw new Error('User not authenticated')
+    if (!user) {
+      return { data: null, error: { message: 'Пользователь не авторизован', code: 'AUTH_ERROR' } }
+    }
     
-    // Проверяем, есть ли уже товар в корзине
-    const { data: existingItem } = await supabase
+    // Проверяем, есть ли уже товар в корзине (без single())
+    const { data: existingItems, error: checkError } = await supabase
       .from('cart_items')
       .select('*')
       .eq('user_id', user.id)
       .eq('product_id', productId)
-      .single()
+      .limit(1)
+    
+    if (checkError) {
+      console.error('Error checking existing cart item:', checkError)
+      return { data: null, error: { message: 'Ошибка проверки корзины', code: 'CHECK_ERROR', details: checkError } }
+    }
+    
+    const existingItem = existingItems && existingItems.length > 0 ? existingItems[0] : null
     
     if (existingItem) {
-      // Обновляем количество
-      const { data, error } = await supabase
+      // Обновляем количество существующего товара
+      const newQuantity = existingItem.quantity + quantity
+      const { data: updateData, error: updateError } = await supabase
         .from('cart_items')
-        .update({ quantity: existingItem.quantity + quantity })
+        .update({ quantity: newQuantity })
         .eq('id', existingItem.id)
         .select()
-        .single()
       
-      if (error) throw error
-      return { data, error: null }
+      if (updateError) {
+        console.error('Error updating cart item:', updateError)
+        return { data: null, error: { message: 'Ошибка обновления корзины', code: 'UPDATE_ERROR', details: updateError } }
+      }
+      
+      // Если updateData null (204 ответ), возвращаем объект с обновленными данными
+      return { data: updateData && updateData.length > 0 ? updateData[0] : { id: existingItem.id, quantity: newQuantity }, error: null }
     } else {
-      // Добавляем новый товар
-      const { data, error } = await supabase
+      // Добавляем новый товар в корзину
+      const { data: insertData, error: insertError } = await supabase
         .from('cart_items')
         .insert([{ user_id: user.id, product_id: productId, quantity }])
         .select()
-        .single()
       
-      if (error) throw error
-      return { data, error: null }
+      if (insertError) {
+        console.error('Error inserting cart item:', insertError)
+        return { data: null, error: { message: 'Ошибка добавления в корзину', code: 'INSERT_ERROR', details: insertError } }
+      }
+      
+      return { data: insertData && insertData.length > 0 ? insertData[0] : { user_id: user.id, product_id: productId, quantity }, error: null }
     }
   } catch (error) {
-    console.error('Error adding to cart:', error)
-    return { data: null, error }
+    console.error('Unexpected error in addToCart:', error)
+    return { 
+      data: null, 
+      error: { 
+        message: error?.message || 'Неожиданная ошибка', 
+        code: 'UNEXPECTED_ERROR',
+        details: error 
+      } 
+    }
   }
 }
 
@@ -558,8 +616,8 @@ export const removeFromCart = async (cartItemId) => {
   try {
     const { error } = await supabase
       .from('cart_items')
-      .delete()
       .eq('id', cartItemId)
+      .delete()
     
     if (error) throw error
     return { error: null }
@@ -576,8 +634,8 @@ export const clearCart = async () => {
     
     const { error } = await supabase
       .from('cart_items')
-      .delete()
       .eq('user_id', user.id)
+      .delete()
     
     if (error) throw error
     return { error: null }
@@ -633,7 +691,7 @@ export const getUserFavorites = async () => {
     
     const { data, error } = await supabase
       .from('user_favorites')
-      .select('*, products(*)')
+      .select('*')
       .eq('user_id', user.id)
     
     if (error) throw error
@@ -718,7 +776,7 @@ export const deleteProductFromDB = deleteProduct
 // Функции для работы с сессией
 export const getCurrentSession = async () => {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession()
+    const { session, error } = await supabase.auth.getSession()
     if (error) throw error
     return { data: session, error: null }
   } catch (error) {
@@ -988,7 +1046,7 @@ export const getCommercialProposals = async () => {
   try {
     await validateSession()
     
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await supabase.auth.getUser()
     if (!user) throw new Error('Пользователь не авторизован')
     
     const { data, error } = await supabase
@@ -1010,7 +1068,7 @@ export const createCommercialProposal = async (proposalData) => {
   try {
     await validateSession()
     
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await supabase.auth.getUser()
     if (!user) throw new Error('Пользователь не авторизован')
     
     const newProposal = {
@@ -1045,7 +1103,7 @@ export const updateCommercialProposal = async (proposalId, proposalData) => {
   try {
     await validateSession()
     
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await supabase.auth.getUser()
     if (!user) throw new Error('Пользователь не авторизован')
     
     const updateData = {
@@ -1076,7 +1134,7 @@ export const deleteCommercialProposal = async (proposalId) => {
   try {
     await validateSession()
     
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await supabase.auth.getUser()
     if (!user) throw new Error('Пользователь не авторизован')
     
     const { error } = await supabase
@@ -1099,12 +1157,12 @@ export const uploadCommercialProposalFile = async (file, title, note = null) => 
     console.log('🔍 Starting file upload:', file.name)
     await validateSession()
     
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await supabase.auth.getUser()
     if (!user) throw new Error('Пользователь не авторизован')
     console.log('✅ User authenticated:', user.email)
     
     // Получаем токен авторизации
-    const { data: { session } } = await supabase.auth.getSession()
+    const { session } = await supabase.auth.getSession()
     if (!session?.access_token) {
       throw new Error('Нет токена авторизации')
     }
@@ -1168,7 +1226,7 @@ export const updateCommercialProposalNote = async (proposalId, note) => {
     console.log('🔍 Updating note for proposal:', proposalId, 'Note:', note)
     
     // Упрощаем - проверяем пользователя напрямую
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    const { user, error: userError } = await supabase.auth.getUser()
     if (userError) {
       console.error('❌ User auth error:', userError)
       throw userError

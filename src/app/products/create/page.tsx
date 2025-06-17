@@ -121,7 +121,7 @@ export default function CreateProductPage() {
           setTimeout(() => reject(new Error('Session timeout')), 5000)
         )
         
-        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any
+        const { session } = await Promise.race([sessionPromise, timeoutPromise]) as any
         token = session?.access_token
         console.log('🔑 Токен получен:', !!token)
         console.log('📋 Session данные:', session ? 'есть' : 'нет')

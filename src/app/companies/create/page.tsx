@@ -53,7 +53,7 @@ export default function CreateCompanyPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession()
+        const { session, error } = await supabase.auth.getSession()
         
         if (error) {
           console.error('Auth error:', error)
