@@ -120,9 +120,10 @@ class SupabaseProxyClient {
     },
 
     // Выход
-    signOut: async (): Promise<{ error?: any }> => {
+    signOut: async (options?: { scope?: 'global' | 'local' }): Promise<{ error?: any }> => {
       try {
-        if (this.accessToken) {
+        // Если scope не 'local', отправляем запрос на сервер
+        if (options?.scope !== 'local' && this.accessToken) {
           await this.makeRequest('auth/v1/logout', {
             method: 'POST'
           })
@@ -221,6 +222,35 @@ class SupabaseProxyClient {
       } catch (error) {
         console.error('❌ Refresh session error:', error)
         return { error }
+      }
+    },
+
+    // Подписка на изменения состояния аутентификации (заглушка для совместимости)
+    onAuthStateChange: (callback: (event: string, session: any) => void) => {
+      // Для совместимости возвращаем объект с методом unsubscribe
+      // В реальной реализации здесь был бы WebSocket или EventSource
+      console.log('🔔 onAuthStateChange called (proxy mode)')
+      
+      // Проверяем текущую сессию при подписке
+      if (typeof window !== 'undefined') {
+        setTimeout(async () => {
+          const { data: { session } } = await this.auth.getSession()
+          if (session) {
+            callback('SIGNED_IN', session)
+          } else {
+            callback('SIGNED_OUT', null)
+          }
+        }, 100)
+      }
+      
+      return {
+        data: {
+          subscription: {
+            unsubscribe: () => {
+              console.log('🔕 Auth state change unsubscribed')
+            }
+          }
+        }
       }
     }
   }
