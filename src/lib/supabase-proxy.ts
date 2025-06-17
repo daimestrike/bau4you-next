@@ -94,33 +94,23 @@ class SupabaseProxyClient {
           
           // Возвращаем в формате Supabase
           return {
-            data: {
-              user: responseData.user,
-              session: {
-                access_token: responseData.access_token,
-                refresh_token: responseData.refresh_token,
-                expires_in: responseData.expires_in,
-                token_type: responseData.token_type,
-                user: responseData.user
-              }
-            },
+            access_token: responseData.access_token,
+            refresh_token: responseData.refresh_token,
+            user: responseData.user,
             error: null
           }
         } else if (responseData.error) {
           return {
-            data: null,
             error: responseData.error
           }
         } else {
           return {
-            data: null,
             error: { message: 'Неизвестная ошибка авторизации' }
           }
         }
       } catch (error) {
         console.error('❌ Sign in error:', error)
         return {
-          data: null,
           error: { message: error instanceof Error ? error.message : 'Ошибка сети' }
         }
       }
