@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { 
   FileText, 
@@ -60,7 +60,7 @@ interface ProposalData {
   totalArea: number
 }
 
-export default function CommercialProposalPage() {
+function CommercialProposalPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const printRef = useRef<HTMLDivElement>(null)
@@ -859,4 +859,19 @@ export default function CommercialProposalPage() {
       </div>
     </div>
   )
-} 
+}
+
+export default function CommercialProposalPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Загрузка...</p>
+        </div>
+      </div>
+    }>
+      <CommercialProposalPageContent />
+    </Suspense>
+  )
+}
