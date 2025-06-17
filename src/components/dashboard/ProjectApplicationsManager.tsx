@@ -69,7 +69,7 @@ export default function ProjectApplicationsManager({ userId }: ProjectApplicatio
         .from('project_applications')
         .select(`
           *,
-          projects!inner(
+          projects(
             id,
             name,
             description,
@@ -399,4 +399,4 @@ export default function ProjectApplicationsManager({ userId }: ProjectApplicatio
       )}
     </div>
   )
-} 
+}

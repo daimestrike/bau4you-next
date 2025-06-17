@@ -251,7 +251,7 @@ export default function DashboardPage() {
               .from('project_applications')
               .select(`
                 *,
-                projects:project_id(
+                projects(
                   id,
                   name,
                   description,
@@ -261,10 +261,15 @@ export default function DashboardPage() {
                   category,
                   owner_id
                 ),
-                companies:company_id(
+                companies(
                   id,
                   name,
-                  type
+                  type,
+                  description,
+                  location,
+                  website,
+                  phone,
+                  email
                 )
               `)
               .in('company_id', companyIds) // Загружаем заявки от всех компаний пользователя

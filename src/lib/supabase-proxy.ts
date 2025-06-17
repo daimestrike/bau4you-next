@@ -79,24 +79,50 @@ class SupabaseProxyClient {
           })
         })
         
-        const data = await response.json()
+        const responseData = await response.json()
         
-        if (data.access_token) {
-          this.accessToken = data.access_token
-          this.refreshToken = data.refresh_token
+        if (responseData.access_token) {
+          this.accessToken = responseData.access_token
+          this.refreshToken = responseData.refresh_token
           
           // Сохраняем в localStorage
           if (typeof window !== 'undefined') {
-            localStorage.setItem('sb-access-token', data.access_token)
-            localStorage.setItem('sb-refresh-token', data.refresh_token)
-            localStorage.setItem('sb-user', JSON.stringify(data.user))
+            localStorage.setItem('sb-access-token', responseData.access_token)
+            localStorage.setItem('sb-refresh-token', responseData.refresh_token)
+            localStorage.setItem('sb-user', JSON.stringify(responseData.user))
+          }
+          
+          // Возвращаем в формате Supabase
+          return {
+            data: {
+              user: responseData.user,
+              session: {
+                access_token: responseData.access_token,
+                refresh_token: responseData.refresh_token,
+                expires_in: responseData.expires_in,
+                token_type: responseData.token_type,
+                user: responseData.user
+              }
+            },
+            error: null
+          }
+        } else if (responseData.error) {
+          return {
+            data: null,
+            error: responseData.error
+          }
+        } else {
+          return {
+            data: null,
+            error: { message: 'Неизвестная ошибка авторизации' }
           }
         }
-        
-        return data
       } catch (error) {
         console.error('❌ Sign in error:', error)
-        return { error }
+        return {
+          data: null,
+          error: { message: error instanceof Error ? error.message : 'Ошибка сети' }
+        }
       }
     },
 
@@ -274,10 +300,14 @@ class SupabaseQueryBuilder {
   private makeRequest: (path: string, options?: RequestInit, useServiceRole?: boolean) => Promise<Response>
   private queryParams: URLSearchParams = new URLSearchParams()
   private selectColumns = '*'
+  private isSingle: boolean = false
+  private isMaybeSingle: boolean = false
 
   constructor(table: string, makeRequest: (path: string, options?: RequestInit, useServiceRole?: boolean) => Promise<Response>) {
     this.table = table
     this.makeRequest = makeRequest
+    this.isSingle = false
+    this.isMaybeSingle = false
   }
 
   select(columns = '*') {
@@ -350,6 +380,15 @@ class SupabaseQueryBuilder {
 
   single() {
     this.queryParams.set('limit', '1')
+    this.isSingle = true
+    this.isMaybeSingle = false
+    return this
+  }
+
+  maybeSingle() {
+    this.queryParams.set('limit', '1')
+    this.isSingle = true
+    this.isMaybeSingle = true
     return this
   }
 
@@ -365,8 +404,29 @@ class SupabaseQueryBuilder {
       
       const data = await response.json()
       
+      // Если используется single() или maybeSingle(), извлекаем первый элемент из массива
+      let resultData = data
+      if (this.isSingle && response.ok && Array.isArray(data)) {
+        if (data.length === 0) {
+          if (this.isMaybeSingle) {
+            // maybeSingle() возвращает null, если записи не найдены
+            resultData = null
+          } else {
+            // single() возвращает ошибку, если записи не найдены
+            return {
+              data: null,
+              error: { message: 'No rows found', code: 'PGRST116' },
+              status: 406,
+              statusText: 'Not Acceptable'
+            }
+          }
+        } else {
+          resultData = data[0]
+        }
+      }
+      
       return {
-        data: response.ok ? data : null,
+        data: response.ok ? resultData : null,
         error: response.ok ? null : data,
         status: response.status,
         statusText: response.statusText
@@ -518,4 +578,4 @@ class SupabaseStorageClient {
 
 // Создаем и экспортируем единственный экземпляр клиента
 export const supabaseProxy = new SupabaseProxyClient()
-export default supabaseProxy 
+export default supabaseProxy
