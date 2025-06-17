@@ -72,7 +72,7 @@ export default function RegisterPage() {
       console.log('📊 Данные после регистрации:', data)
       
       // Проверяем, есть ли сессия после регистрации
-      const session = data?.session || data?.user?.session
+      const session = data?.session
       if (session || data?.user) {
         console.log('✅ Сессия найдена, перенаправляем на dashboard')
         // Ждем немного, чтобы сессия успела установиться
