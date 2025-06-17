@@ -35,7 +35,7 @@ export default function ManageProductsPage() {
 
   const loadUserProducts = async () => {
     try {
-      const { user } = await supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         setError('Необходима авторизация')
         return

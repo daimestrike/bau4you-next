@@ -51,7 +51,7 @@ export default function TendersClient({ initialProjects }: TendersClientProps) {
 
   const checkUser = async () => {
     try {
-      const { user } = await supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser()
       setCurrentUser(user)
       console.log('[Tenders] Текущий пользователь:', user ? user.email : 'Не авторизован')
     } catch (error) {

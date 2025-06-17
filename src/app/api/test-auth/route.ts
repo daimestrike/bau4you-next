@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
   
   // Проверяем авторизацию
   console.log('🔐 Checking authentication...')
-  const { user, error } = await supabase.auth.getUser()
+  const { data: { user }, error } = await supabase.auth.getUser()
   
   console.log('👤 Supabase User:', user ? `${user.id} (${user.email})` : 'null')
   console.log('❌ Supabase Auth error:', error)

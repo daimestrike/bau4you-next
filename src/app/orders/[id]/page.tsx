@@ -47,7 +47,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     const loadOrder = async () => {
       try {
         const resolvedParams = await params
-        const { user } = await supabase.auth.getUser()
+        const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
           router.push('/login')
           return

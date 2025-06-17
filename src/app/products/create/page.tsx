@@ -206,7 +206,7 @@ export default function CreateProductPage() {
           return
         } catch (fallbackError) {
           console.error('❌ Fallback также не сработал:', fallbackError)
-          throw new Error(result?.error || fallbackError.message || 'Ошибка при создании товара')
+          throw new Error(result?.error || (fallbackError instanceof Error ? fallbackError.message : String(fallbackError)) || 'Ошибка при создании товара')
         }
       }
 

@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       )
       
       // Пробуем получить пользователя с токеном
-      const { user: tokenUser, error: tokenError } = await authenticatedSupabase.auth.getUser()
+      const { data: { user: tokenUser }, error: tokenError } = await authenticatedSupabase.auth.getUser()
       if (tokenUser && !tokenError) {
         console.log('✅ Token authentication successful:', tokenUser.email)
         user = tokenUser
@@ -139,11 +139,11 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Если токен не сработал, пробуем через куки
-    if (!user) {
-      const { data: supabaseAuth, error: supabaseError } = await supabase.auth.getUser()
-      user = supabaseAuth.user
-      authError = supabaseError
+          // Если токен не сработал, пробуем через куки
+      if (!user) {
+        const { data: { user: supabaseAuth }, error: supabaseError } = await supabase.auth.getUser()
+        user = supabaseAuth
+        authError = supabaseError
       
       console.log('👤 Cookie-based User:', user ? `${user.id} (${user.email})` : 'null')
       console.log('❌ Cookie-based Auth error:', authError)

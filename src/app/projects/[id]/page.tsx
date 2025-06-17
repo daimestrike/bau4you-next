@@ -252,7 +252,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         
         // Получаем текущего пользователя (без требования активной сессии)
         try {
-          const { session } = await supabase.auth.getSession()
+          const { data: { session } } = await supabase.auth.getSession()
           setCurrentUser(session?.user || null)
         } catch (authError) {
           console.log('Ошибка авторизации:', authError)
@@ -273,7 +273,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         setApplications(applicationsData)
         
         // Проверяем, является ли текущий пользователь владельцем проекта
-        const { session } = await supabase.auth.getSession()
+        const { data: { session } } = await supabase.auth.getSession()
         setIsOwner(session?.user?.id === projectData.owner_id)
         
       } catch (err) {

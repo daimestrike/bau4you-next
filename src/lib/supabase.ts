@@ -217,7 +217,7 @@ export const getCurrentUser = async () => {
 }
 
 export const getCurrentSession = async () => {
-  const { session, error } = await supabase.auth.getSession()
+  const { data: { session }, error } = await supabase.auth.getSession()
   return { session, error }
 }
 
@@ -393,7 +393,7 @@ export const getTender = async (id: string) => {
 }
 
 export const createTender = async (tenderData: Record<string, unknown>) => {
-  const { user } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return { data: null, error: new Error('Пользователь не авторизован') }
   }
@@ -410,7 +410,7 @@ export const createTender = async (tenderData: Record<string, unknown>) => {
 }
 
 export const getUserTenders = async () => {
-  const { user } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return { data: null, error: new Error('Пользователь не авторизован') }
   }
@@ -487,7 +487,7 @@ export const getRegions = async () => {
 }
 
 export const createCompany = async (companyData: Record<string, unknown>) => {
-  const { user } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return { data: null, error: new Error('Пользователь не авторизован') }
   }
@@ -696,7 +696,7 @@ export const createProduct = async (productData: Record<string, unknown>) => {
   
   try {
     // Проверяем аутентификацию
-    const { user, error: authError } = await supabase.auth.getUser()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     console.log('👤 Пользователь:', user ? user.id : 'не авторизован')
     
     if (authError) {
@@ -1181,8 +1181,8 @@ export const clearCart = async () => {
 
   const result = await supabase
     .from('cart_items')
-    .eq('user_id', user.id)
     .delete()
+    .eq('user_id', user.id)
   
   // Отправляем событие обновления корзины
   if (!result.error && typeof window !== 'undefined') {
@@ -2574,7 +2574,7 @@ export const checkProjectsTableStructure = async () => {
     
     // Удаляем тестовый проект
     if (data?.id) {
-      await supabase.from('projects').eq('id', data.id).delete()
+      await supabase.from('projects').delete().eq('id', data.id)
       console.log('Тестовый проект удален')
     }
   }
@@ -2968,17 +2968,20 @@ export const updateCommercialProposalNote = async (id: string, note: string) => 
 // Функция для получения токена аутентификации
 const getAuthToken = async () => {
   // 1. Попробуем получить токен через Supabase getSession
-  const { session } = await supabase.auth.getSession()
+  const sessionResponse = await supabase.auth.getSession() as any
+  const session = sessionResponse?.data?.session || sessionResponse?.session
   if (session?.access_token) {
     console.log('🔑 Token from Supabase session')
     return session.access_token
   }
 
   // 2. Попробуем получить токен через getUser (может быть более актуальный)
-  const { user } = await supabase.auth.getUser()
+  const userResponse = await supabase.auth.getUser() as any
+  const user = userResponse?.data?.user || userResponse?.user
   if (user) {
     // Попробуем еще раз получить сессию
-    const { session: freshSession } = await supabase.auth.getSession()
+    const freshSessionResponse = await supabase.auth.getSession() as any
+    const freshSession = freshSessionResponse?.data?.session || freshSessionResponse?.session
     if (freshSession?.access_token) {
       console.log('🔑 Token from fresh Supabase session')
       return freshSession.access_token

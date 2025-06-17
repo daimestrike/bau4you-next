@@ -51,7 +51,7 @@ export default function EditProductPage({ params }: ProductPageProps) {
 
   const loadProduct = async (id: string) => {
     try {
-      const { user } = await supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         setError('Необходима авторизация')
         return
@@ -119,7 +119,7 @@ export default function EditProductPage({ params }: ProductPageProps) {
     setError(null)
 
     try {
-      const { user } = await supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         setError('Необходима авторизация')
         return

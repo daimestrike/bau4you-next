@@ -25,7 +25,7 @@ export default function AuthTestPage() {
       console.log('[AuthTest] Проверяка аутентификации...')
       
       // Получаем сессию напрямую
-      const { session, error: sessionError } = await supabase.auth.getSession()
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       console.log('[AuthTest] Сессия:', session)
       console.log('[AuthTest] Ошибка сессии:', sessionError)
       setSession(session)

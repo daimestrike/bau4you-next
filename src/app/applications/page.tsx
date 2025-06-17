@@ -54,7 +54,7 @@ export default function ApplicationsPage() {
 
   const loadApplications = async () => {
     try {
-      const { user } = await supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         window.location.href = '/login'
         return

@@ -3,6 +3,10 @@ const VPS_URL = 'https://api.bau4you.co'
 const PROXY_BASE_URL = `${VPS_URL}/api/sb`
 
 interface SupabaseAuthResponse {
+  data?: {
+    user?: any
+    session?: any
+  }
   access_token?: string
   refresh_token?: string
   user?: any
@@ -166,7 +170,7 @@ class SupabaseProxyClient {
       } catch (error) {
         console.error('❌ Sign up error:', error)
         return { 
-          data: null,
+          data: { user: null, session: null },
           error: { message: error instanceof Error ? error.message : 'Ошибка сети' }
         }
       }
