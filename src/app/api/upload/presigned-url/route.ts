@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     )
     
     // Проверяем авторизацию
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { user, error: authError } = await supabase.auth.getUser()
     if (!user || authError) {
       return NextResponse.json(
         { error: 'Необходима авторизация' },

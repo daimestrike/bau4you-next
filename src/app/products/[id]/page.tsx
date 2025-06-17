@@ -82,12 +82,17 @@ export default function ProductPage({ params }: ProductPageProps) {
 
   const checkIfFavorite = async (id: string) => {
     try {
-      const { data } = await getUserFavorites()
+      const { data, error } = await getUserFavorites()
+      if (error) {
+        console.warn('Could not load favorites:', error.message)
+        return
+      }
       if (data) {
         const isInFavorites = data.some(fav => fav.products?.id === id)
         setIsFavorite(isInFavorites)
       }
-    } catch {
+    } catch (error) {
+      console.warn('Error checking favorites:', error)
       // Ignore error if user not authenticated
     }
   }
@@ -101,14 +106,17 @@ export default function ProductPage({ params }: ProductPageProps) {
     try {
       const { error } = await addToCart(product.id, quantity)
       if (error) {
-        alert('Ошибка: ' + error.message)
+        console.error('Cart error details:', error)
+        const errorMessage = error.message || 'Неизвестная ошибка'
+        alert('Ошибка: ' + errorMessage)
       } else {
         setCartSuccess(true)
         // Скрываем сообщение об успехе через 3 секунды
         setTimeout(() => setCartSuccess(false), 3000)
       }
-    } catch {
-      alert('Ошибка добавления в корзину')
+    } catch (err) {
+      console.error('Unexpected error in handleAddToCart:', err)
+      alert('Ошибка добавления в корзину: ' + (err instanceof Error ? err.message : 'Неизвестная ошибка'))
     } finally {
       setAddingToCart(false)
     }

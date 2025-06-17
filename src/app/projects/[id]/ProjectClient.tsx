@@ -97,7 +97,7 @@ function ProposalModal({ isOpen, onClose, projectId, onSuccess, userApplications
 
     try {
       // Проверяем аутентификацию пользователя
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      const { user, error: authError } = await supabase.auth.getUser()
       if (authError || !user) {
         throw new Error('Необходимо войти в систему для отправки заявки')
       }
@@ -633,4 +633,4 @@ export default function ProjectClient({ projectId, projectOwnerId, initialApplic
       />
     </div>
   )
-} 
+}

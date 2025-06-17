@@ -26,7 +26,7 @@ export default function AddPortfolioProjectPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        const { session } = await supabase.auth.getSession()
         if (session) {
           setIsAuthenticated(true)
         } else {
