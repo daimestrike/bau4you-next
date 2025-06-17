@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Authentication</title>
+</head>
+<body>
+    <h1>Test Authentication and Token</h1>
+    <div id="status">Checking...</div>
+    <pre id="logs"></pre>
+    
+    <script type="module">
+        const logs = document.getElementById('logs');
+        const status = document.getElementById('status');
+        
+        function log(message) {
+            console.log(message);
+            logs.textContent += message + '\n';
+        }
+        
+        async function testAuth() {
+            try {
+                log('🔍 Testing authentication...');
+                
+                // Тестируем API аутентификации
+                const authResponse = await fetch('/api/test-auth', {
+                    credentials: 'include'
+                });
+                const authData = await authResponse.json();
+                
+                log('👤 Auth API response: ' + JSON.stringify(authData, null, 2));
+                
+                if (authData.user) {
+                    status.textContent = 'User is authenticated: ' + authData.user.email;
+                    
+                    // Тестируем upload API с токеном
+                    log('🔍 Testing upload API...');
+                    const formData = new FormData();
+                    const testFile = new File(['test content'], 'test.txt', { type: 'text/plain' });
+                    formData.append('file', testFile);
+                    formData.append('path', 'test/test.txt');
+                    
+                    const uploadResponse = await fetch('/api/upload/direct', {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'include'
+                    });
+                    
+                    log('📡 Upload response status: ' + uploadResponse.status);
+                    const uploadData = await uploadResponse.text();
+                    log('📡 Upload response: ' + uploadData);
+                    
+                } else {
+                    status.textContent = 'User is not authenticated';
+                    log('❌ No user found. Error: ' + authData.error);
+                }
+                
+                // Проверяем localStorage
+                log('🔍 Checking localStorage...');
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.includes('auth') || key.includes('sb-'))) {
+                        log('📋 Found auth key: ' + key);
+                        const value = localStorage.getItem(key);
+                        if (value) {
+                            try {
+                                const parsed = JSON.parse(value);
+                                log('📋 Parsed value keys: ' + Object.keys(parsed).join(', '));
+                                if (parsed.access_token) {
+                                    log('🔑 Found access_token: ' + parsed.access_token.substring(0, 20) + '...');
+                                }
+                            } catch (e) {
+                                log('❌ Cannot parse value for ' + key);
+                            }
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                log('❌ Error: ' + error.message);
+                status.textContent = 'Error: ' + error.message;
+            }
+        }
+        
+        testAuth();
+    </script>
+</body>
+</html> 

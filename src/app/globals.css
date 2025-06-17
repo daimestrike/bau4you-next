@@ -309,3 +309,83 @@ body {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
+
+/* Basic print styles for all pages */
+@media print {
+  @page {
+    margin: 10mm;
+    size: A4 portrait;
+  }
+  
+  /* Optimize colors for print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  
+  /* Hide decorative elements */
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Glass effect styles */
+.glass-card {
+  @apply bg-white/60 backdrop-blur-xl border border-white/20;
+}
+
+.hover-glass {
+  @apply hover:bg-white/80 hover:backdrop-blur-2xl hover:border-white/30;
+}
+
+/* Header floating effect */
+.header-floating {
+  @apply bg-white/80 backdrop-blur-xl;
+}
+
+/* Animations */
+.animate-fade-in {
+  animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+}
+
+/* Focus styles */
+.focus\:ring-2:focus {
+  --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+  --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+  box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+}
+
+/* Utility classes */
+.text-gradient {
+  @apply bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent;
+}

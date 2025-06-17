@@ -1,6 +1,15 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+// MIDDLEWARE ВРЕМЕННО ОТКЛЮЧЕН ДЛЯ ОТЛАДКИ АВТОРИЗАЦИИ
+// 
+// Проблемы которые решаем:
+// 1. Бесконечные редиректы между страницами
+// 2. Конфликты с client-side навигацией
+// 3. Сложности с синхронизацией сессий
+//
+// TODO: Включить middleware после стабилизации авторизации
+
+/*
 import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
 // Публичные маршруты, доступные без авторизации
 const publicRoutes = ['/', '/login', '/register', '/companies', '/products', '/tenders', '/search']
@@ -25,92 +34,93 @@ const protectedRoutes = [
 // Маршруты только для администраторов
 const adminRoutes = ['/admin']
 
-export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl
-  
-  // Пропускаем все служебные запросы
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/api') ||
-    pathname.startsWith('/.well-known') ||
-    pathname.includes('.') ||
-    pathname === '/favicon.ico'
-  ) {
-    return NextResponse.next()
-  }
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
 
-  console.log(`[Middleware] Processing: ${pathname}`)
-
-  // Создаем серверный клиент Supabase
-  let supabase
-  try {
-    supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return req.cookies.get(name)?.value
-          },
-          set() {
-            // Middleware не может устанавливать куки
-          },
-          remove() {
-            // Middleware не может удалять куки
-          },
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
         },
-      }
-    )
-  } catch (error) {
-    console.error('[Middleware] Supabase client creation failed:', error)
-    return NextResponse.next()
+        set(name: string, value: string, options) {
+          request.cookies.set({
+            name,
+            value,
+            ...options,
+          })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          })
+        },
+        remove(name: string, options) {
+          request.cookies.set({
+            name,
+            value: '',
+            ...options,
+          })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({
+            name,
+            value: '',
+            ...options,
+          })
+        },
+      },
+    }
+  )
+
+  // Получаем пользователя для обновления сессии
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Логируем для debugging
+  console.log('🔍 Middleware - Path:', request.nextUrl.pathname)
+  console.log('🔍 Middleware - User:', user ? `${user.id} (${user.email})` : 'null')
+
+  // Защищенные маршруты
+  const protectedPaths = ['/dashboard', '/commercial-proposals', '/commercial-proposal']
+  const isProtectedPath = protectedPaths.some(path => 
+    request.nextUrl.pathname.startsWith(path)
+  )
+
+  // Если пользователь не авторизован и пытается получить доступ к защищенному маршруту
+  if (!user && isProtectedPath) {
+    const redirectUrl = new URL('/login', request.url)
+    redirectUrl.searchParams.set('redirect', request.nextUrl.pathname)
+    console.log('🔒 Middleware - Redirecting to login:', redirectUrl.toString())
+    return NextResponse.redirect(redirectUrl)
   }
 
-  // Проверяем текущую сессию
-  let user = null
-  try {
-    const { data: { user: currentUser } } = await supabase.auth.getUser()
-    user = currentUser
-    console.log(`[Middleware] User check: ${user ? user.email : 'not authenticated'}`)
-  } catch (error) {
-    console.error('[Middleware] Auth check failed:', error)
+  // Если пользователь авторизован и пытается получить доступ к странице входа
+  if (user && request.nextUrl.pathname === '/login') {
+    const redirectUrl = new URL('/dashboard', request.url)
+    console.log('✅ Middleware - User already logged in, redirecting to dashboard')
+    return NextResponse.redirect(redirectUrl)
   }
 
-  // Проверяем защищенные маршруты
-  const isProtectedPath = protectedRoutes.some(route => pathname.startsWith(route))
-  
-  if (isProtectedPath && !user) {
-    console.log(`[Middleware] Redirecting to login: ${pathname}`)
-    const loginUrl = new URL('/login', req.url)
-    loginUrl.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(loginUrl)
-  }
-
-  // Перенаправляем авторизованных пользователей с логина на дашборд
-  if ((pathname === '/login' || pathname === '/register') && user) {
-    console.log(`[Middleware] Redirecting authenticated user to dashboard`)
-    return NextResponse.redirect(new URL('/dashboard', req.url))
-  }
-
-  return NextResponse.next()
+  return response
 }
+*/
 
-// 🚧 MIDDLEWARE ОТКЛЮЧЕН ДЛЯ РАЗРАБОТКИ 🚧
-// 
-// TODO: Включить middleware перед деплоем в продакшн
-// 
-// Что нужно будет сделать:
-// 1. Убрать комментарии с функции middleware
-// 2. Восстановить matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)']
-// 3. Протестировать все защищенные маршруты
-// 4. Проверить правильность редиректов
-//
-// Преимущества отключенного middleware во время разработки:
-// ✅ Быстрая навигация без проверок
-// ✅ Легкое тестирование всех страниц
-// ✅ Нет конфликтов с hot reload
-// ✅ Можно сосредоточиться на основной функциональности
-
+// Пустой экспорт для Next.js
 export const config = {
-  matcher: [] // Middleware временно отключен
+  // Отключаем matcher полностью
+  matcher: [],
 } 

@@ -118,6 +118,7 @@ export const signIn = async (email: string, password: string) => {
     console.log('Ответ от Supabase:', { 
       user: data?.user?.email, 
       session: !!data?.session,
+      sessionToken: data?.session?.access_token ? `${data.session.access_token.substring(0, 20)}...` : 'none',
       error: error?.message 
     })
     
@@ -126,9 +127,38 @@ export const signIn = async (email: string, password: string) => {
       return { data: null, error }
     }
     
-    if (!data.user) {
-      console.error('Пользователь не найден в ответе')
-      return { data: null, error: new Error('Пользователь не найден') }
+    if (!data.user || !data.session) {
+      console.error('Пользователь или сессия не найдены в ответе')
+      return { data: null, error: new Error('Ошибка аутентификации') }
+    }
+
+    // Дополнительно убеждаемся, что сессия установлена
+    try {
+      await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token
+      })
+      console.log('✅ Сессия успешно установлена')
+    } catch (sessionError) {
+      console.error('❌ Ошибка установки сессии:', sessionError)
+    }
+
+    // Отправляем данные на сервер для установки cookies
+    try {
+      await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token
+        }),
+        credentials: 'include'
+      })
+      console.log('✅ Server session установлена')
+    } catch (serverError) {
+      console.error('❌ Ошибка установки server session:', serverError)
     }
     
     return { data, error: null }
@@ -153,10 +183,18 @@ export const getCurrentUser = async () => {
 
     const { data: { user }, error } = await Promise.race([getUserPromise, timeoutPromise]) as any
     
-    console.log('✅ getCurrentUser successful:', user?.id)
+    // Логируем только если есть пользователь
+    if (user) {
+      console.log('✅ getCurrentUser successful:', user.id)
+    }
+    
     return { user, error }
   } catch (error) {
-    console.error('❌ getCurrentUser failed:', error)
+    // Не логируем ошибку "Auth session missing" так как это нормальное состояние
+    const errorMessage = (error as Error).message
+    if (!errorMessage.includes('Auth session missing')) {
+      console.error('❌ getCurrentUser failed:', error)
+    }
     return { user: null, error: error as Error }
   }
 }
@@ -907,15 +945,25 @@ export const getUserApplications = async () => {
     return { data: null, error: new Error('Пользователь не авторизован') }
   }
 
-  const { data, error } = await supabase
-    .from('applications')
-    .select(`
-      *,
-      tenders(*)
-    `)
-    .eq('contractor_id', user.id)
-    .order('created_at', { ascending: false })
-  return { data, error }
+  try {
+    // Простой запрос без JOIN до создания всех связей
+    const { data, error } = await supabase
+      .from('applications')
+      .select('*')
+      .eq('contractor_id', user.id)
+      .order('created_at', { ascending: false })
+    
+    if (error && error.code === 'PGRST116') {
+      // Таблица не существует
+      console.log('Applications table does not exist')
+      return { data: [], error: null }
+    }
+    
+    return { data, error }
+  } catch (error) {
+    console.error('Applications table might not exist:', error)
+    return { data: [], error: null }
+  }
 }
 
 // Обновление тендера
@@ -970,32 +1018,42 @@ export const updateApplicationStatus = async (applicationId: string, status: 'pe
     return { data: null, error: new Error('Пользователь не авторизован') }
   }
 
-  // Сначала проверяем, что пользователь является владельцем тендера
-  const { data: application, error: appError } = await supabase
-    .from('applications')
-    .select(`
-      *,
-      tenders!inner(client_id)
-    `)
-    .eq('id', applicationId)
-    .single()
+  try {
+    // Сначала получаем заявку
+    const { data: application, error: appError } = await supabase
+      .from('applications')
+      .select('*')
+      .eq('id', applicationId)
+      .single()
 
-  if (appError) return { data: null, error: appError }
-  if (application.tenders.client_id !== user.id) {
-    return { data: null, error: new Error('Нет прав для изменения статуса этой заявки') }
+    if (appError) return { data: null, error: appError }
+
+    // Получаем тендер отдельно
+    const { data: tender, error: tenderError } = await supabase
+      .from('tenders')
+      .select('client_id')
+      .eq('id', application.tender_id)
+      .single()
+
+    if (tenderError || !tender || tender.client_id !== user.id) {
+      return { data: null, error: new Error('Нет прав для изменения статуса этой заявки') }
+    }
+
+    const { data, error } = await supabase
+      .from('applications')
+      .update({ 
+        status,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', applicationId)
+      .select()
+      .single()
+
+    return { data, error }
+  } catch (error) {
+    console.error('Error updating application status:', error)
+    return { data: null, error: error as Error }
   }
-
-  const { data, error } = await supabase
-    .from('applications')
-    .update({ 
-      status,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', applicationId)
-    .select()
-    .single()
-
-  return { data, error }
 }
 
 // Cart functions
@@ -2631,3 +2689,334 @@ export const getUserProjects = async (userId: string) => {
   return { data: normalizedData, error }
 }
 
+// Commercial Proposal Functions
+export const getCommercialProposals = async () => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { data: null, error: new Error('Пользователь не авторизован') }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('commercial_proposals')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (error && error.code === 'PGRST116') {
+      // Таблица не существует
+      console.log('Commercial proposals table does not exist')
+      return { data: [], error: null }
+    }
+
+    return { data: data || [], error }
+  } catch (error) {
+    console.error('Error fetching commercial proposals:', error)
+    return { data: [], error: null }
+  }
+}
+
+export const createCommercialProposal = async (proposalData: {
+  title: string
+  type: 'created' | 'uploaded'
+  proposal_data?: any
+  file_name?: string
+  file_url?: string
+  file_size?: number
+  note?: string
+}) => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { data: null, error: new Error('Пользователь не авторизован') }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('commercial_proposals')
+      .insert({
+        ...proposalData,
+        user_id: user.id
+      })
+      .select()
+      .single()
+
+    return { data, error }
+  } catch (error) {
+    console.error('Error creating commercial proposal:', error)
+    return { data: null, error: error as Error }
+  }
+}
+
+export const updateCommercialProposal = async (id: string, updates: {
+  title?: string
+  proposal_data?: any
+  note?: string
+}) => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { data: null, error: new Error('Пользователь не авторизован') }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('commercial_proposals')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .select()
+      .single()
+
+    return { data, error }
+  } catch (error) {
+    console.error('Error updating commercial proposal:', error)
+    return { data: null, error: error as Error }
+  }
+}
+
+export const deleteCommercialProposal = async (id: string) => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { error: new Error('Пользователь не авторизован') }
+  }
+
+  try {
+    const { error } = await supabase
+      .from('commercial_proposals')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    return { error }
+  } catch (error) {
+    console.error('Error deleting commercial proposal:', error)
+    return { error: error as Error }
+  }
+}
+
+export const uploadCommercialProposalFile = async (file: File) => {
+  console.log('🚀 UPLOAD FUNCTION CALLED - NEW VERSION')
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    console.log('❌ No user found in getUser()')
+    return { data: null, error: new Error('Пользователь не авторизован') }
+  }
+
+  console.log('✅ User found:', user.id, user.email)
+
+  try {
+    // Создаем уникальное имя файла
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+    const filePath = `commercial-proposals/${user.id}/${fileName}`
+
+    // Пытаемся загрузить файл напрямую в Supabase Storage
+    console.log('🏗️ Trying Supabase Storage upload...')
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('files')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
+
+    if (uploadError) {
+      console.error('❌ Supabase storage upload error:', uploadError)
+      console.log('🔄 Fallback to API route...')
+      
+      // Если не удалось загрузить в Supabase Storage, используем API роут
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('path', filePath)
+
+      // Получаем токен аутентификации
+      console.log('🔍 Getting auth token...')
+      const token = await getAuthToken()
+      
+      console.log('🔑 Token found:', !!token)
+      console.log('🔑 Token preview:', token ? token.substring(0, 20) + '...' : 'none')
+
+      const headers: HeadersInit = {}
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+        console.log('✅ Added Authorization header')
+      } else {
+        console.log('⚠️ No token available for Authorization header')
+      }
+
+      console.log('🌐 Making request to /api/upload/direct with headers:', headers)
+      const response = await fetch('/api/upload/direct', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+        headers
+      })
+      
+      console.log('📡 Response status:', response.status)
+      console.log('📡 Response OK:', response.ok)
+
+      if (!response.ok) {
+        throw new Error('Ошибка загрузки файла')
+      }
+
+      const result = await response.json()
+      return { 
+        data: { 
+          file_url: result.publicUrl, 
+          file_name: file.name,
+          file_size: file.size 
+        }, 
+        error: null 
+      }
+    }
+
+    // Получаем публичный URL для успешно загруженного файла
+    const { data: { publicUrl } } = supabase.storage
+      .from('files')
+      .getPublicUrl(filePath)
+
+    return { 
+      data: { 
+        file_url: publicUrl, 
+        file_name: file.name,
+        file_size: file.size 
+      }, 
+      error: null 
+    }
+  } catch (error) {
+    console.error('Error uploading commercial proposal file:', error)
+    
+    // Fallback: сохраняем файл как Base64 в localStorage
+    try {
+      const reader = new FileReader()
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      
+      const base64Data = await base64Promise
+      const localFileName = `local_${Date.now()}_${file.name}`
+      
+      // Сохраняем в localStorage с ограничением размера
+      if (file.size < 5 * 1024 * 1024) { // Ограничение 5MB для localStorage
+        localStorage.setItem(`uploaded_file_${localFileName}`, base64Data)
+        
+        return { 
+          data: { 
+            file_url: `local://${localFileName}`, 
+            file_name: file.name,
+            file_size: file.size 
+          }, 
+          error: null 
+        }
+      } else {
+        throw new Error('Файл слишком большой для локального сохранения')
+      }
+    } catch (fallbackError) {
+      console.error('Fallback upload failed:', fallbackError)
+      return { data: null, error: new Error('Не удалось загрузить файл. Попробуйте файл меньшего размера.') }
+    }
+  }
+}
+
+export const updateCommercialProposalNote = async (id: string, note: string) => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { data: null, error: new Error('Пользователь не авторизован') }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('commercial_proposals')
+      .update({ 
+        note,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .select()
+      .single()
+
+    return { data, error }
+  } catch (error) {
+    console.error('Error updating proposal note:', error)
+    return { data: null, error: error as Error }
+  }
+}
+
+// Функция для получения токена аутентификации
+const getAuthToken = async () => {
+  // 1. Попробуем получить токен через Supabase getSession
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session?.access_token) {
+    console.log('🔑 Token from Supabase session')
+    return session.access_token
+  }
+
+  // 2. Попробуем получить токен через getUser (может быть более актуальный)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    // Попробуем еще раз получить сессию
+    const { data: { session: freshSession } } = await supabase.auth.getSession()
+    if (freshSession?.access_token) {
+      console.log('🔑 Token from fresh Supabase session')
+      return freshSession.access_token
+    }
+  }
+
+  // 3. Если мы в браузере, попробуем localStorage
+  if (typeof window !== 'undefined') {
+    // Попробуем разные варианты ключей localStorage
+    const possibleKeys = [
+      'sb-gcbwqqwmqjolxxrvfbzz-auth-token', // из логов
+      `sb-${process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]?.split('.')[0]}-auth-token`,
+      'supabase.auth.token'
+    ]
+    
+    for (const key of possibleKeys) {
+      const localStorageData = localStorage.getItem(key)
+      if (localStorageData) {
+        try {
+          const parsedData = JSON.parse(localStorageData)
+                     const token = parsedData?.access_token || parsedData?.accessToken
+           if (token) {
+             console.log('🔑 Token found in localStorage with key:', key)
+             return token
+           }
+         } catch (e) {
+           console.log('🔑 Failed to parse localStorage token for key:', key)
+         }
+       }
+     }
+
+     // 4. Проверим все ключи в localStorage, которые содержат 'auth'
+     try {
+       for (let i = 0; i < localStorage.length; i++) {
+         const key = localStorage.key(i)
+         if (key && key.includes('auth')) {
+           console.log('🔍 Found auth-related key:', key)
+           const data = localStorage.getItem(key)
+           if (data) {
+             try {
+               const parsed = JSON.parse(data)
+               if (parsed.access_token && typeof parsed.access_token === 'string') {
+                 console.log('🔑 Token found in', key)
+                 return parsed.access_token
+               }
+             } catch (e) {
+               // Skip invalid JSON
+             }
+           }
+         }
+       }
+     } catch (e) {
+       console.log('🔑 Error scanning localStorage:', e)
+     }
+   }
+
+   console.log('⚠️ No authentication token found')
+   return null
+}

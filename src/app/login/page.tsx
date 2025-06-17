@@ -3,15 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { signIn, getCurrentUser } from '@/lib/supabase'
+import { signIn } from '@/lib/supabase'
 
 export default function LoginPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
-  const [userCheckDone, setUserCheckDone] = useState(false)
-  const [checkInProgress, setCheckInProgress] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -21,40 +19,6 @@ export default function LoginPage() {
   useEffect(() => {
     setMounted(true)
   }, [])
-
-  // Проверяем, не авторизован ли уже пользователь (только на клиенте)
-  useEffect(() => {
-    if (!mounted || userCheckDone || checkInProgress) return
-
-    const checkUser = async () => {
-      setCheckInProgress(true)
-      try {
-        console.log('[Login] Проверка текущего пользователя...')
-        const { user } = await getCurrentUser()
-        if (user) {
-          console.log('[Login] Пользователь уже авторизован:', user.email)
-          // Middleware должен обработать перенаправление, но на всякий случай:
-          const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
-          console.log('[Login] Перенаправление на:', redirectTo)
-          
-          // Используем window.location для более надежного перенаправления
-          window.location.href = redirectTo
-          return
-        } else {
-          console.log('[Login] Пользователь не авторизован')
-        }
-      } catch (error) {
-        console.error('[Login] Ошибка проверки пользователя:', error)
-      } finally {
-        setUserCheckDone(true)
-        setCheckInProgress(false)
-      }
-    }
-    
-    // Добавляем небольшую задержку чтобы избежать race conditions
-    const timeoutId = setTimeout(checkUser, 100)
-    return () => clearTimeout(timeoutId)
-  }, [mounted])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -85,9 +49,8 @@ export default function LoginPage() {
         const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
         console.log('[Login] Перенаправление на:', redirectTo)
         
-        // Перенаправляем на дашборд
-        router.push(redirectTo)
-        router.refresh()
+        // Принудительное перенаправление через window.location для надежности
+        window.location.href = redirectTo
       } else {
         throw new Error('Не удалось получить данные пользователя')
       }
@@ -101,7 +64,7 @@ export default function LoginPage() {
   }
 
   // Предотвращаем рендеринг до монтирования на клиенте
-  if (!mounted || (!userCheckDone && !error)) {
+  if (!mounted) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -109,7 +72,7 @@ export default function LoginPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
           <p className="mt-4 text-center text-sm text-gray-600">
-            {checkInProgress ? 'Проверка авторизации...' : 'Загрузка...'}
+            Загрузка...
           </p>
         </div>
       </div>
@@ -140,8 +103,6 @@ export default function LoginPage() {
               {error}
             </div>
           )}
-
-
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
@@ -211,8 +172,6 @@ export default function LoginPage() {
                 {isLoading ? 'Вход...' : 'Войти'}
               </button>
             </div>
-
-
           </form>
         </div>
       </div>

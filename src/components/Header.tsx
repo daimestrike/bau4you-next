@@ -100,7 +100,8 @@ export default function Header() {
         
         if (!isMounted) return
         
-        if (authError) {
+        // Логируем только реальные ошибки, не отсутствие сессии
+        if (authError && !authError.message?.includes('Auth session missing')) {
           console.error('[Header] Auth error:', authError)
         }
         
@@ -124,7 +125,11 @@ export default function Header() {
           setCartItemsCount(0)
         }
       } catch (error) {
-        console.error('[Header] Error loading user:', error)
+        // Логируем только реальные ошибки, не отсутствие сессии
+        const errorMessage = (error as Error).message
+        if (!errorMessage?.includes('Auth session missing')) {
+          console.error('[Header] Error loading user:', error)
+        }
       } finally {
         if (isMounted) {
           setIsLoading(false)
@@ -262,7 +267,9 @@ export default function Header() {
         isScrolled 
           ? 'backdrop-blur-md shadow-lg border-b border-white/20' 
           : 'header-floating'
-      } rounded-2xl border border-white/20 shadow-2xl`}>
+      } rounded-2xl border border-white/20 shadow-2xl`}
+        onClick={(e) => isMenuOpen && e.stopPropagation()}
+      >
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Логотип */}
@@ -507,8 +514,11 @@ export default function Header() {
             {/* Мобильное меню */}
             <div className="md:hidden">
               <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="text-gray-700 hover:text-blue-600 transition-colors duration-300 p-2 rounded-xl hover:bg-white/50"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsMenuOpen(!isMenuOpen)
+                }}
+                className="text-gray-700 hover:text-blue-600 transition-colors duration-300 p-2 rounded-xl hover:bg-white/50 relative z-50"
               >
                 {isMenuOpen ? (
                   <XMarkIcon className="h-6 w-6" />
@@ -521,7 +531,10 @@ export default function Header() {
 
           {/* Мобильная навигация */}
           {isMenuOpen && (
-            <div className="md:hidden border-t border-white/20 py-4 mt-4">
+            <div 
+              className="md:hidden border-t border-white/20 py-4 mt-4 relative z-50"
+              onClick={(e) => e.stopPropagation()}
+            >
               <nav className="space-y-2">
                 {navigation.map((item) => (
                   <Link
@@ -613,13 +626,20 @@ export default function Header() {
         </div>
         
         {/* Закрытие выпадающих меню при клике вне их */}
-        {(isUserMenuOpen || isMenuOpen) && (
+        {isUserMenuOpen && (
           <div 
             className="fixed inset-0 z-40" 
             onClick={() => {
               setIsUserMenuOpen(false)
-              setIsMenuOpen(false)
             }}
+          />
+        )}
+        
+        {/* Оверлей для мобильного меню */}
+        {isMenuOpen && (
+          <div 
+            className="fixed inset-0 z-40 md:hidden bg-black/20 backdrop-blur-sm" 
+            onClick={() => setIsMenuOpen(false)}
           />
         )}
       </header>

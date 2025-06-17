@@ -27,7 +27,21 @@ export const ALLOWED_IMAGE_TYPES = [
   'image/gif'
 ]
 
-export const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+export const ALLOWED_DOCUMENT_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain',
+  'text/csv'
+]
+
+export const ALLOWED_ALL_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_DOCUMENT_TYPES]
+
+export const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB для документов
 
 // Генерация уникального имени файла
 export const generateFileName = (originalName: string, userId?: string): string => {
@@ -89,20 +103,47 @@ export const getPublicUrl = (fileName: string): string => {
 }
 
 // Валидация файла
-export const validateFile = (file: File): { valid: boolean; error?: string } => {
+export const validateFile = (
+  file: File, 
+  options: {
+    allowedTypes?: string[];
+    maxSize?: number;
+    context?: 'image' | 'document' | 'all';
+  } = {}
+): { valid: boolean; error?: string } => {
+  const {
+    allowedTypes = ALLOWED_ALL_TYPES,
+    maxSize = MAX_FILE_SIZE,
+    context = 'all'
+  } = options;
+
+  // Определяем разрешенные типы на основе контекста
+  let typesToCheck = allowedTypes;
+  if (context === 'image') {
+    typesToCheck = ALLOWED_IMAGE_TYPES;
+  } else if (context === 'document') {
+    typesToCheck = ALLOWED_DOCUMENT_TYPES;
+  }
+
   // Проверка типа файла
-  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+  if (!typesToCheck.includes(file.type)) {
+    const allowedTypesText = context === 'image' 
+      ? 'JPEG, PNG, WebP, GIF' 
+      : context === 'document'
+      ? 'PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, CSV'
+      : 'изображения и документы';
+    
     return {
       valid: false,
-      error: 'Неподдерживаемый тип файла. Разрешены: JPEG, PNG, WebP, GIF'
+      error: `Неподдерживаемый тип файла. Разрешены: ${allowedTypesText}`
     }
   }
 
   // Проверка размера файла
-  if (file.size > MAX_FILE_SIZE) {
+  if (file.size > maxSize) {
     return {
       valid: false,
-      error: `Файл слишком большой. Максимальный размер: ${MAX_FILE_SIZE / 1024 / 1024}MB`
+      error: `Файл слишком большой. Максимальный размер: ${maxSize / 1024 / 1024}MB`
     }
   }
 

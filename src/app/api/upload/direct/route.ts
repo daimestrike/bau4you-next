@@ -83,43 +83,58 @@ export async function POST(request: NextRequest) {
       }
     )
     
-    // Если есть Authorization header, используем его
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7)
-      console.log('🔑 Using Authorization header token')
-      
-      // Проверяем токен напрямую
-      try {
-        const { data: { user }, error } = await supabase.auth.getUser(token)
-        if (user && !error) {
-          console.log('✅ Token is valid, user found:', user.email)
-          // Устанавливаем пользователя в контекст
-          supabase.auth.setSession({
-            access_token: token,
-            refresh_token: '', // Для проверки токена refresh_token не нужен
-          })
-        } else {
-          console.log('❌ Invalid token:', error?.message)
-        }
-      } catch (tokenError) {
-        console.log('💥 Token validation error:', tokenError)
-      }
-    }
-    
+
     // Проверяем авторизацию
     console.log('🔐 Checking authentication...')
     let user = null
     let authError = null
+    let authenticatedSupabase = supabase
     
-    // Сначала пробуем через Supabase
-    const { data: supabaseAuth, error: supabaseError } = await supabase.auth.getUser()
-    user = supabaseAuth.user
-    authError = supabaseError
+    // Если есть Authorization header, создаем клиент с токеном
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      console.log('🔑 Creating authenticated client with token, length:', token.length)
+      
+      authenticatedSupabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            get() { return undefined },
+            set() {},
+            remove() {},
+          },
+          global: {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        }
+      )
+      
+      // Пробуем получить пользователя с токеном
+      const { data: { user: tokenUser }, error: tokenError } = await authenticatedSupabase.auth.getUser()
+      if (tokenUser && !tokenError) {
+        console.log('✅ Token authentication successful:', tokenUser.email)
+        user = tokenUser
+        authError = null
+      } else {
+        console.log('❌ Token authentication failed:', tokenError?.message)
+        authError = tokenError
+      }
+    }
     
-    console.log('👤 Supabase User:', user ? `${user.id} (${user.email})` : 'null')
-    console.log('❌ Supabase Auth error:', authError)
+    // Если токен не сработал, пробуем через куки
+    if (!user) {
+      const { data: supabaseAuth, error: supabaseError } = await supabase.auth.getUser()
+      user = supabaseAuth.user
+      authError = supabaseError
+      
+      console.log('👤 Cookie-based User:', user ? `${user.id} (${user.email})` : 'null')
+      console.log('❌ Cookie-based Auth error:', authError)
+    }
     
-    // Если Supabase не сработал, но есть Authorization header, пробуем JWT
+    // Если ничего не сработало, но есть Authorization header, пробуем JWT валидацию
     if (!user && authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7)
       console.log('🔄 Trying JWT validation as fallback...')
@@ -154,8 +169,8 @@ export async function POST(request: NextRequest) {
 
     console.log('📁 File received:', file.name, file.size, file.type)
 
-    // Валидация файла
-    const validation = validateFile(file)
+    // Валидация файла - разрешаем документы для коммерческих предложений
+    const validation = validateFile(file, { context: 'all' }) // Разрешаем все типы файлов
     if (!validation.valid) {
       console.log('❌ File validation failed:', validation.error)
       return NextResponse.json(

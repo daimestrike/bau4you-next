@@ -69,6 +69,14 @@ export default function ClientDashboard({ user, profile, stats, onPartnershipsUp
       enabled: true
     },
     {
+      title: 'Коммерческое предложение',
+      description: 'Создать профессиональное КП',
+      icon: FileText,
+      href: '/commercial-proposal',
+      color: 'indigo' as const,
+      enabled: true
+    },
+    {
       title: 'Найти подрядчиков',
       description: 'Поиск проверенных исполнителей',
       icon: Users,

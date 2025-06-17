@@ -8,11 +8,15 @@ import {
   ClipboardList, 
   CheckCircle,
   Handshake,
-  MapPin
+  MapPin,
+  ArrowRight,
+  Plus,
+  FolderOpen
 } from 'lucide-react'
 import MetricCard from './MetricCard'
 import QuickActions from './QuickActions'
 import ProjectApplicationsManager from './ProjectApplicationsManager'
+
 
 interface ContractorDashboardProps {
   user: any
@@ -50,6 +54,14 @@ export default function ContractorDashboard({ user, profile, stats }: Contractor
       icon: FileText,
       href: '/tenders',
       color: 'green' as const,
+      enabled: true
+    },
+    {
+      title: 'Коммерческое предложение',
+      description: 'Создать профессиональное КП',
+      icon: FileText,
+      href: '/commercial-proposal',
+      color: 'indigo' as const,
       enabled: true
     },
     {
@@ -273,6 +285,60 @@ export default function ContractorDashboard({ user, profile, stats }: Contractor
 
       {/* Управление заявками на проекты */}
       <ProjectApplicationsManager userId={user.id} />
+
+      {/* Коммерческие предложения */}
+      <div className="glass-card rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <FileText className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Коммерческие предложения
+              </h3>
+              <p className="text-sm text-gray-600">
+                Создание и управление КП
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/commercial-proposals"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
+          >
+            <ArrowRight className="w-4 h-4" />
+            Управление КП
+          </Link>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Link
+            href="/commercial-proposal"
+            className="flex items-center gap-4 p-4 bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl hover:from-blue-100 hover:to-purple-100 transition-all duration-300 group"
+          >
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+              <Plus className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h4 className="font-medium text-gray-900">Создать КП</h4>
+              <p className="text-sm text-gray-600">Новое коммерческое предложение</p>
+            </div>
+          </Link>
+          
+          <Link
+            href="/commercial-proposals"
+            className="flex items-center gap-4 p-4 bg-gradient-to-br from-green-50 to-teal-50 rounded-xl hover:from-green-100 hover:to-teal-100 transition-all duration-300 group"
+          >
+            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-teal-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+              <FolderOpen className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h4 className="font-medium text-gray-900">Мои КП</h4>
+              <p className="text-sm text-gray-600">Просмотр и редактирование</p>
+            </div>
+          </Link>
+        </div>
+      </div>
     </div>
   )
 } 

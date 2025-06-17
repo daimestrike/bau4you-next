@@ -1,32 +1,13 @@
-import { createClient } from '@supabase/supabase-js'
+// ПЕРЕХОД НА ПРОКСИ СИСТЕМУ
+// Теперь все запросы идут через VPS прокси вместо прямых вызовов Supabase
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+import { supabaseProxy } from './supabase-proxy'
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables')
-  throw new Error('Missing Supabase environment variables')
-}
+// Экспортируем прокси клиент как supabase для совместимости
+export const supabase = supabaseProxy
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    // Улучшенная обработка ошибок
-    onAuthStateChange: (event, session) => {
-      if (event === 'TOKEN_REFRESHED') {
-        console.log('Token refreshed successfully')
-      } else if (event === 'SIGNED_OUT') {
-        console.log('User signed out')
-        // Очищаем localStorage при выходе
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('supabase.auth.token')
-        }
-      }
-    }
-  }
-})
+// Заглушка для совместимости со старым кодом - больше не нужна
+// Все конфигурации теперь обрабатываются в prоxy-клиенте
 
 // Функция для очистки недействительных токенов
 export const clearInvalidTokens = async () => {
@@ -78,14 +59,14 @@ export const getSearchSuggestions = async (query) => {
   try {
     await validateSession()
     
-    const { data, error } = await supabase
+    const response = await supabase
       .from('search_suggestions')
       .select('suggestion')
       .ilike('suggestion', `%${query}%`)
       .limit(5)
     
-    if (error) throw error
-    return { data: data?.map(item => item.suggestion) || [], error: null }
+    if (response.error) throw response.error
+    return { data: response.data?.map(item => item.suggestion) || [], error: null }
   } catch (error) {
     console.error('Error fetching search suggestions:', error)
     return { data: [], error }
@@ -280,7 +261,11 @@ export const getCurrentUser = async () => {
     if (error) throw error
     return { user, error: null }
   } catch (error) {
-    console.error('Error getting current user:', error)
+    // Не логируем ошибку "Auth session missing" так как это нормальное состояние
+    const errorMessage = error?.message || ''
+    if (!errorMessage.includes('Auth session missing')) {
+      console.error('Error getting current user:', error)
+    }
     return { user: null, error }
   }
 }
@@ -957,4 +942,230 @@ export const getSupplierCartStats = async () => {
 
 export const getSupplierOrders = async () => {
   return { data: [], error: null }
+}
+
+// =================== КОММЕРЧЕСКИЕ ПРЕДЛОЖЕНИЯ ===================
+
+// Получение сохраненных коммерческих предложений пользователя
+export const getCommercialProposals = async () => {
+  try {
+    await validateSession()
+    
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Пользователь не авторизован')
+    
+    const { data, error } = await supabase
+      .from('commercial_proposals')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+    
+    if (error) throw error
+    return { data: data || [], error: null }
+  } catch (error) {
+    console.error('Error fetching commercial proposals:', error)
+    return { data: [], error }
+  }
+}
+
+// Создание нового коммерческого предложения
+export const createCommercialProposal = async (proposalData) => {
+  try {
+    await validateSession()
+    
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Пользователь не авторизован')
+    
+    const newProposal = {
+      user_id: user.id,
+      title: proposalData.title,
+      type: 'created', // 'created' или 'uploaded'
+      proposal_data: proposalData.proposalData,
+      file_name: proposalData.fileName || null,
+      file_url: proposalData.fileUrl || null,
+      file_size: proposalData.fileSize || null,
+      note: proposalData.note || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+    
+    const { data, error } = await supabase
+      .from('commercial_proposals')
+      .insert([newProposal])
+      .select()
+      .single()
+    
+    if (error) throw error
+    return { data, error: null }
+  } catch (error) {
+    console.error('Error creating commercial proposal:', error)
+    return { data: null, error }
+  }
+}
+
+// Обновление коммерческого предложения
+export const updateCommercialProposal = async (proposalId, proposalData) => {
+  try {
+    await validateSession()
+    
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Пользователь не авторизован')
+    
+    const updateData = {
+      title: proposalData.title,
+      proposal_data: proposalData.proposalData,
+      note: proposalData.note || null,
+      updated_at: new Date().toISOString()
+    }
+    
+    const { data, error } = await supabase
+      .from('commercial_proposals')
+      .update(updateData)
+      .eq('id', proposalId)
+      .eq('user_id', user.id) // Проверяем владельца
+      .select()
+      .single()
+    
+    if (error) throw error
+    return { data, error: null }
+  } catch (error) {
+    console.error('Error updating commercial proposal:', error)
+    return { data: null, error }
+  }
+}
+
+// Удаление коммерческого предложения
+export const deleteCommercialProposal = async (proposalId) => {
+  try {
+    await validateSession()
+    
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Пользователь не авторизован')
+    
+    const { error } = await supabase
+      .from('commercial_proposals')
+      .delete()
+      .eq('id', proposalId)
+      .eq('user_id', user.id) // Проверяем владельца
+    
+    if (error) throw error
+    return { error: null }
+  } catch (error) {
+    console.error('Error deleting commercial proposal:', error)
+    return { error }
+  }
+}
+
+// Загрузка файла КП в S3 и сохранение в базу
+export const uploadCommercialProposalFile = async (file, title, note = null) => {
+  try {
+    console.log('🔍 Starting file upload:', file.name)
+    await validateSession()
+    
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Пользователь не авторизован')
+    console.log('✅ User authenticated:', user.email)
+    
+    // Получаем токен авторизации
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) {
+      throw new Error('Нет токена авторизации')
+    }
+    console.log('🔑 Access token obtained, length:', session.access_token.length)
+    
+    // Загружаем файл через API
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('userId', user.id)
+    formData.append('folder', 'commercial-proposals')
+    
+    console.log('📤 Sending upload request via VPS proxy with Authorization header')
+    const uploadResponse = await fetch('https://api.bau4you.co/api/upload/direct', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: formData
+    })
+    
+    console.log('📥 Upload response status:', uploadResponse.status)
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text()
+      console.error('❌ Upload failed:', errorText)
+      throw new Error('Ошибка загрузки файла')
+    }
+    
+    const uploadResult = await uploadResponse.json()
+    
+    // Сохраняем информацию о файле в базу
+    const newProposal = {
+      user_id: user.id,
+      title: title || file.name.replace(/\.[^/.]+$/, ''),
+      type: 'uploaded',
+      proposal_data: null,
+      file_name: file.name,
+      file_url: uploadResult.publicUrl,
+      file_size: file.size,
+      note: note,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+    
+    const { data, error } = await supabase
+      .from('commercial_proposals')
+      .insert([newProposal])
+      .select()
+      .single()
+    
+    if (error) throw error
+    return { data, error: null }
+  } catch (error) {
+    console.error('Error uploading commercial proposal file:', error)
+    return { data: null, error }
+  }
+}
+
+// Обновление заметки к предложению
+export const updateCommercialProposalNote = async (proposalId, note) => {
+  try {
+    console.log('🔍 Updating note for proposal:', proposalId, 'Note:', note)
+    
+    // Упрощаем - проверяем пользователя напрямую
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError) {
+      console.error('❌ User auth error:', userError)
+      throw userError
+    }
+    if (!user) {
+      console.error('❌ No user found')
+      throw new Error('Пользователь не авторизован')
+    }
+    console.log('✅ User authenticated for note update:', user.email)
+    
+    const updateData = { 
+      note: note,
+      updated_at: new Date().toISOString()
+    }
+    console.log('📝 Update data:', updateData)
+    
+    console.log('🚀 Executing update query...')
+    const { data, error } = await supabase
+      .from('commercial_proposals')
+      .update(updateData)
+      .eq('id', proposalId)
+      .eq('user_id', user.id) // Проверяем владельца
+      .select()
+      .single()
+    
+    console.log('📥 Update result:', { data, error })
+    if (error) {
+      console.error('❌ Database update error:', error)
+      throw error
+    }
+    console.log('✅ Note updated successfully')
+    return { data, error: null }
+  } catch (error) {
+    console.error('❌ Error updating commercial proposal note:', error)
+    return { data: null, error }
+  }
 }

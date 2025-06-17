@@ -190,23 +190,36 @@ export default function DashboardPage() {
       if (userProfile?.role === 'contractor') {
         try {
           // Загружаем заявки подрядчика на тендеры
-          const { data: tenderApplicationsData, error: tenderApplicationsError } = await supabase
-            .from('applications')
-            .select(`
-              *,
-              tenders:tender_id(
-                id,
-                title,
-                description,
-                budget,
-                location,
-                deadline,
-                category,
-                client_id
-              )
-            `)
-            .eq('contractor_id', userId)
-            .order('created_at', { ascending: false })
+          let tenderApplicationsData = []
+          let tenderApplicationsError = null
+          
+          try {
+            // Сначала пробуем простой запрос без JOIN
+            const { data, error } = await supabase
+              .from('applications')
+              .select('*')
+              .eq('contractor_id', userId)
+              .order('created_at', { ascending: false })
+            
+            if (error && error.code === 'PGRST116') {
+              // Таблица не существует
+              console.log('Applications table does not exist, skipping...')
+              tenderApplicationsData = []
+              tenderApplicationsError = null
+            } else if (error) {
+              console.error('Error fetching applications:', error)
+              tenderApplicationsData = []
+              tenderApplicationsError = error
+            } else {
+              tenderApplicationsData = data || []
+              tenderApplicationsError = null
+            }
+          } catch (error) {
+            console.error('Applications table might not exist:', error)
+            // Если таблица applications не существует, просто игнорируем
+            tenderApplicationsData = []
+            tenderApplicationsError = null
+          }
 
           let tenderApplications = []
           if (tenderApplicationsError) {
@@ -215,9 +228,9 @@ export default function DashboardPage() {
             tenderApplications = (tenderApplicationsData || []).map(app => ({
               ...app,
               type: 'tender',
-              title: app.tenders?.title || 'Тендер',
-              description: app.tenders?.description || '',
-              budget: app.tenders?.budget || 0
+              title: `Заявка на тендер ${app.tender_id ? app.tender_id.substring(0, 8) : ''}`,
+              description: app.proposal || 'Заявка на тендер',
+              budget: 0
             }))
           }
 
