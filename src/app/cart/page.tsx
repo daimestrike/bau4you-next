@@ -202,7 +202,7 @@ export default function CartPage() {
                   <div className="relative aspect-square bg-gray-100">
                     {product.image_url ? (
                       <Image
-                        src={product.image_url}
+                        src={`/api/image-proxy?url=${encodeURIComponent(product.image_url)}`}
                         alt={product.name}
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -403,4 +403,4 @@ export default function CartPage() {
       </div>
     </main>
   )
-} 
+}

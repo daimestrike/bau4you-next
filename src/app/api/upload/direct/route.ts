@@ -3,6 +3,21 @@ import { uploadFile, generateFileName, validateFile } from '@/lib/s3'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+// CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+}
+
+// Handle preflight requests
+export async function OPTIONS(request: NextRequest) {
+  return new Response(null, {
+    status: 200,
+    headers: corsHeaders,
+  })
+}
+
 // Простая проверка JWT токена
 const validateJWTToken = async (token: string) => {
   try {
@@ -149,9 +164,9 @@ export async function POST(request: NextRequest) {
     if (!user || authError) {
       console.log('🚫 Authentication failed - Auth session missing!')
       return NextResponse.json(
-        { error: 'Необходима авторизация' },
-        { status: 401 }
-      )
+      { error: 'Необходима авторизация' },
+      { status: 401, headers: corsHeaders }
+    )
     }
 
     console.log('✅ User authenticated:', user.email)
@@ -162,9 +177,9 @@ export async function POST(request: NextRequest) {
     if (!file) {
       console.log('📁 No file provided')
       return NextResponse.json(
-        { error: 'Файл не найден' },
-        { status: 400 }
-      )
+      { error: 'Файл не найден' },
+      { status: 400, headers: corsHeaders }
+    )
     }
 
     console.log('📁 File received:', file.name, file.size, file.type)
@@ -175,7 +190,7 @@ export async function POST(request: NextRequest) {
       console.log('❌ File validation failed:', validation.error)
       return NextResponse.json(
         { error: validation.error },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -210,12 +225,14 @@ export async function POST(request: NextRequest) {
         publicUrl,
         fileSize: file.size,
         fileType: file.type
+      }, {
+        headers: corsHeaders
       })
     } catch (s3Error) {
       console.error('💥 S3 Upload error:', s3Error)
       return NextResponse.json(
         { error: 'Ошибка при загрузке в S3: ' + (s3Error instanceof Error ? s3Error.message : 'Неизвестная ошибка') },
-        { status: 500 }
+        { status: 500, headers: corsHeaders }
       )
     }
 
@@ -223,7 +240,7 @@ export async function POST(request: NextRequest) {
     console.error('💥 Upload error:', error)
     return NextResponse.json(
       { error: 'Ошибка при загрузке файла' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 }

@@ -39,13 +39,18 @@ export default function FavoritesPage() {
   useEffect(() => {
     const loadFavorites = async () => {
       try {
+        console.log('🔍 Loading favorites...')
         const { user, error: authError } = await getCurrentUser()
+        console.log('👤 Current user:', user?.id, 'Auth error:', authError)
+        
         if (authError || !user) {
+          console.log('❌ No user or auth error')
           setError('Необходимо войти в систему')
           return
         }
 
         // Получаем избранные компании пользователя
+        console.log('📊 Fetching company_followers for user:', user.id)
         const { data: followersData, error: followersError } = await supabase
           .from('company_followers')
           .select(`
@@ -66,11 +71,15 @@ export default function FavoritesPage() {
           `)
           .eq('user_id', user.id)
 
+        console.log('📊 Followers data:', followersData)
+        console.log('❌ Followers error:', followersError)
+
         if (followersError) {
           throw followersError
         }
 
         const companies = followersData?.map(item => item.companies).filter(Boolean) || []
+        console.log('🏢 Mapped companies:', companies)
         setFavoriteCompanies(companies as any[])
       } catch (err: unknown) {
         const error = err as Error

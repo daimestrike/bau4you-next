@@ -374,7 +374,7 @@ export default function Home() {
                           <div className="flex items-start gap-3" suppressHydrationWarning={true}>
                             <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center" suppressHydrationWarning={true}>
                               {product.images && product.images.length > 0 ? (
-                                <img src={product.images[0]} alt={product.name} className="w-12 h-12 object-cover rounded-lg" />
+                                <img src={`/api/image-proxy?url=${encodeURIComponent(product.images[0])}`} alt={product.name} className="w-12 h-12 object-cover rounded-lg" />
                               ) : (
                                 <span className="text-lg">📦</span>
                               )}
@@ -414,7 +414,7 @@ export default function Home() {
                           <div className="flex items-center gap-3" suppressHydrationWarning={true}>
                             <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold" suppressHydrationWarning={true}>
                               {company.logo ? (
-                                <img src={company.logo} alt={company.name} className="w-10 h-10 object-cover rounded-lg" />
+                                <img src={`/api/image-proxy?url=${encodeURIComponent(company.logo)}`} alt={company.name} className="w-10 h-10 object-cover rounded-lg" />
                               ) : (
                                 company.name.charAt(0)
                               )}
@@ -592,7 +592,7 @@ export default function Home() {
                     <div className="flex items-center gap-4 mb-4" suppressHydrationWarning={true}>
                       <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center text-white font-bold text-lg" suppressHydrationWarning={true}>
                         {company.logo ? (
-                          <img src={company.logo} alt={company.name} className="w-12 h-12 object-cover rounded-xl" />
+                          <img src={`/api/image-proxy?url=${encodeURIComponent(company.logo)}`} alt={company.name} className="w-12 h-12 object-cover rounded-xl" />
                         ) : (
                           company.name.charAt(0)
                         )}
@@ -651,7 +651,7 @@ export default function Home() {
                   <Link key={product.id} href={`/products/${product.id}`} className="bg-white/60 backdrop-blur-md hover:bg-white/70 rounded-2xl p-6 border border-white/20 shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer block" suppressHydrationWarning={true}>
                     <div className="text-4xl mb-4 text-center" suppressHydrationWarning={true}>
                       {product.images && product.images.length > 0 ? (
-                        <img src={product.images[0]} alt={product.name} className="w-16 h-16 object-cover rounded-lg mx-auto" />
+                        <img src={`/api/image-proxy?url=${encodeURIComponent(product.images[0])}`} alt={product.name} className="w-16 h-16 object-cover rounded-lg mx-auto" />
                       ) : (
                         '📦'
                       )}

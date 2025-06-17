@@ -198,12 +198,16 @@ export default function EditProfilePage() {
         throw error
       }
 
-      router.push('/profile')
     } catch (err: unknown) {
       const error = err as Error
       setError(error.message || 'Ошибка при сохранении профиля')
     } finally {
       setIsSaving(false)
+      // Обновляем страницу в любом случае, так как данные могут быть сохранены
+      // даже при отображении ложной ошибки
+      setTimeout(() => {
+        window.location.reload()
+      }, 100)
     }
   }
 

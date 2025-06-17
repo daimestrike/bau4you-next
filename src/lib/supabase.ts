@@ -315,6 +315,7 @@ export const updateProfile = async (userId: string, updates: Record<string, unkn
       .update(cleanUpdate)
       .eq('id', userId)
       .select('*')
+      .single()
     
     return { data, error }
   } catch (triggerError) {

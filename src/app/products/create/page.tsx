@@ -115,24 +115,39 @@ export default function CreateProductPage() {
       // Получаем токен для API запроса с таймаутом
       let token = null
       try {
-        console.log('🔍 Вызываем supabase.auth.getSession() с таймаутом 5 секунд...')
+        console.log('🔍 Вызываем supabase.auth.getSession() с таймаутом 10 секунд...')
         const sessionPromise = supabase.auth.getSession()
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout')), 5000)
+          setTimeout(() => reject(new Error('Session timeout')), 10000)
         )
         
-        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any
+        const { data: { session }, error: sessionError } = await Promise.race([sessionPromise, timeoutPromise]) as any
+        
+        if (sessionError) {
+          console.log('⚠️ Ошибка сессии:', sessionError)
+        }
+        
         token = session?.access_token
         console.log('🔑 Токен получен:', !!token)
         console.log('📋 Session данные:', session ? 'есть' : 'нет')
+        console.log('👤 User ID:', session?.user?.id || 'не найден')
+        
+        // Если токена нет, пробуем получить пользователя напрямую
+        if (!token) {
+          console.log('🔄 Пробуем получить пользователя напрямую...')
+          const { data: { user }, error: userError } = await supabase.auth.getUser()
+          if (user && !userError) {
+            console.log('✅ Пользователь найден напрямую:', user.id)
+            // Пробуем обновить сессию
+            await supabase.auth.refreshSession()
+            const { data: { session: newSession } } = await supabase.auth.getSession()
+            token = newSession?.access_token
+            console.log('🔄 Токен после обновления сессии:', !!token)
+          }
+        }
       } catch (authError) {
         console.log('⚠️ Ошибка получения токена:', authError)
-        console.log('⚠️ Не удалось получить токен, продолжаем без авторизации')
-        
-        // Если это таймаут, пропускаем получение токена
-        if (authError instanceof Error && authError.message === 'Session timeout') {
-          console.log('⏰ Таймаут получения токена, работаем без авторизации')
-        }
+        console.log('⚠️ Не удалось получить токен, будет использован fallback')
       }
       
       console.log('✅ Токен обработан, переходим к API запросу...')
@@ -183,24 +198,24 @@ export default function CreateProductPage() {
           }
           
           console.log('✅ Товар создан через fallback метод:', fallbackResult.data)
-          setSuccess('Товар успешно создан! Перенаправляем на страницу товаров...')
+          setSuccess('Товар успешно создан! Перенаправляем на страницу управления товарами...')
           
           setTimeout(() => {
-            router.push('/products')
+            router.push('/products/manage')
           }, 2000)
           return
         } catch (fallbackError) {
           console.error('❌ Fallback также не сработал:', fallbackError)
-          throw new Error(result.error || 'Ошибка при создании товара')
+          throw new Error(result?.error || fallbackError.message || 'Ошибка при создании товара')
         }
       }
 
       console.log('✅ Товар создан успешно через API:', result.data)
-      setSuccess('Товар успешно создан! Перенаправляем на страницу товаров...')
+      setSuccess('Товар успешно создан! Перенаправляем на страницу управления товарами...')
       
       // Небольшая задержка перед перенаправлением для отображения успеха
       setTimeout(() => {
-        router.push('/products')
+        router.push('/products/manage')
       }, 2000)
       
     } catch (err: unknown) {

@@ -64,6 +64,31 @@ export default function ProjectApplicationsManager({ userId }: ProjectApplicatio
     try {
       setLoading(true)
       
+      // Сначала получаем проекты пользователя
+      const { data: userProjects, error: projectsError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('owner_id', userId)
+      
+      if (projectsError) {
+        console.error('Error loading user projects:', {
+          message: projectsError.message,
+          details: projectsError.details,
+          hint: projectsError.hint,
+          code: projectsError.code,
+          full_error: projectsError
+        })
+        return
+      }
+      
+      if (!userProjects || userProjects.length === 0) {
+        console.log('No projects found for user:', userId)
+        setApplications([])
+        return
+      }
+      
+      const projectIds = userProjects.map(p => p.id)
+      
       // Получаем заявки на проекты пользователя
       const { data, error } = await supabase
         .from('project_applications')
@@ -90,17 +115,27 @@ export default function ProjectApplicationsManager({ userId }: ProjectApplicatio
             email
           )
         `)
-        .eq('projects.owner_id', userId)
+        .in('project_id', projectIds)
         .order('created_at', { ascending: false })
 
       if (error) {
-        console.error('Error loading applications:', error)
+        console.error('Error loading applications:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          full_error: error
+        })
         return
       }
 
       setApplications(data || [])
     } catch (error) {
-      console.error('Error loading applications:', error)
+      console.error('Error loading applications:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        full_error: error
+      })
     } finally {
       setLoading(false)
     }

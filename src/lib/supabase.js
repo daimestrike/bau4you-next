@@ -371,13 +371,33 @@ export const getCartItems = async () => {
 
 export const signIn = async (email, password) => {
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const response = await supabase.auth.signInWithPassword({
       email,
       password
     })
     
-    if (error) throw error
-    return { data, error: null }
+    console.log('[signIn] Proxy response:', response)
+    
+    if (response.error) {
+      throw response.error
+    }
+    
+    // Прокси возвращает данные напрямую, а не в формате {data, error}
+    if (response.access_token && response.user) {
+      return { 
+        data: {
+          user: response.user,
+          session: {
+            access_token: response.access_token,
+            refresh_token: response.refresh_token,
+            user: response.user
+          }
+        }, 
+        error: null 
+      }
+    } else {
+      throw new Error('Не удалось получить данные пользователя')
+    }
   } catch (error) {
     console.error('Error signing in:', error)
     return { data: null, error }
@@ -491,7 +511,8 @@ export const updateProfile = async (userId, profileData) => {
     return { data, error: null }
   } catch (error) {
     console.error('Error updating profile:', error)
-    return { data: null, error }
+    console.error('Full error details:', JSON.stringify(error, null, 2))
+    return { data: null, error: error.message || error }
   }
 }
 
@@ -785,7 +806,7 @@ export const getUserCompanies = async () => {
     const { data, error } = await supabase
       .from('companies')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('owner_id', user.id)
     
     if (error) throw error
     return { data: data || [], error: null }
@@ -1116,8 +1137,8 @@ export const uploadCommercialProposalFile = async (file, title, note = null) => 
     formData.append('userId', user.id)
     formData.append('folder', 'commercial-proposals')
     
-    console.log('📤 Sending upload request via VPS proxy with Authorization header')
-    const uploadResponse = await fetch('https://api.bau4you.co/api/upload/direct', {
+    console.log('📤 Sending upload request to local API with Authorization header')
+    const uploadResponse = await fetch('/api/upload/direct', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${session.access_token}`

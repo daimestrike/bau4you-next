@@ -393,9 +393,9 @@ function SearchPageContent() {
                       className="block bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow overflow-hidden"
                     >
                       {product.image_url && (
-                        <img
-                          src={product.image_url}
-                          alt={product.name}
+                  <img
+                    src={`/api/image-proxy?url=${encodeURIComponent(product.image_url)}`}
+                    alt={product.name}
                           className="w-full h-48 object-cover"
                         />
                       )}

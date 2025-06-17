@@ -155,7 +155,8 @@ function ProductsList({ filters }: { filters: FilterState }) {
         {products.map((product) => {
         const discountPrice = product.discount_price || (product.price * 0.9) // fallback calculation
         const hasDiscount = product.discount_price && product.discount_price < product.price
-        const imageUrl = product.images && product.images.length > 0 ? product.images[0] : null
+        const originalImageUrl = product.images && product.images.length > 0 ? product.images[0] : null
+        const imageUrl = originalImageUrl ? `/api/image-proxy?url=${encodeURIComponent(originalImageUrl)}` : null
         
         // Определяем статус наличия
         const stockQuantity = product.stock_quantity || 0

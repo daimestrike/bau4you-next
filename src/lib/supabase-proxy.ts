@@ -210,7 +210,14 @@ class SupabaseProxyClient {
           method: 'GET'
         })
         
-        const data = await response.json()
+        // Для UPDATE операций Supabase может возвращать 204 No Content без тела
+      let data
+      if (response.status === 204) {
+        data = null
+      } else {
+        const text = await response.text()
+        data = text ? JSON.parse(text) : null
+      }
         return { data: { user: data }, error: response.ok ? null : data }
       } catch (error) {
         console.error('❌ Get user error:', error)
@@ -329,6 +336,9 @@ class SupabaseQueryBuilder {
   private selectColumns = '*'
   private isSingle: boolean = false
   private isMaybeSingle: boolean = false
+  public insertData: any = null
+  public updateData: any = null
+  public operation: string = 'select'
 
   constructor(table: string, makeRequest: (path: string, options?: RequestInit, useServiceRole?: boolean) => Promise<Response>) {
     this.table = table
@@ -383,6 +393,11 @@ class SupabaseQueryBuilder {
     return this
   }
 
+  in(column: string, values: any[]) {
+    this.queryParams.set(column, `in.(${values.join(',')})`)
+    return this
+  }
+
   or(query: string) {
     this.queryParams.set('or', query)
     return this
@@ -426,10 +441,28 @@ class SupabaseQueryBuilder {
 
   async execute(): Promise<SupabaseResponse> {
     try {
+      // Если это операция insert, используем специальный метод
+      if (this.operation === 'insert' && this.insertData) {
+        return await this._executeInsert(this.insertData)
+      }
+      
+      // Если это операция update, используем специальный метод
+      if (this.operation === 'update' && this.updateData) {
+        return await this._executeUpdate(this.updateData)
+      }
+      
+      // Обычная операция select
       const path = `rest/v1/${this.table}?${this.queryParams.toString()}`
       const response = await this.makeRequest(path, { method: 'GET' })
       
-      const data = await response.json()
+      // Для UPDATE операций Supabase может возвращать 204 No Content без тела
+      let data
+      if (response.status === 204) {
+        data = null
+      } else {
+        const text = await response.text()
+        data = text ? JSON.parse(text) : null
+      }
       
       // Если используется single() или maybeSingle(), извлекаем первый элемент из массива
       let resultData = data
@@ -469,19 +502,99 @@ class SupabaseQueryBuilder {
   }
 
   // Методы для выполнения запросов
-  async insert(values: any | any[]): Promise<SupabaseResponse> {
+  insert(values: any | any[]) {
+    // Создаем новый QueryBuilder для цепочки вызовов
+    const builder = new SupabaseQueryBuilder(this.table, this.makeRequest)
+    builder.insertData = values
+    builder.operation = 'insert'
+    return builder
+  }
+
+  async _executeInsert(values: any | any[]): Promise<SupabaseResponse> {
     try {
-      const path = `rest/v1/${this.table}`
+      let path = `rest/v1/${this.table}`
+      
+      // Если есть select параметры, добавляем их
+      if (this.queryParams.has('select')) {
+        path += `?${this.queryParams.toString()}`
+      }
+      
+      const headers: any = {
+        'Content-Type': 'application/json'
+      }
+      
+      // Не используем заголовок Prefer, так как VPS прокси его не поддерживает
+      // Вместо этого будем делать отдельный запрос для получения данных
+      
       const response = await this.makeRequest(path, {
         method: 'POST',
+        headers,
         body: JSON.stringify(values)
       })
       
-      const data = await response.json()
+      if (!response.ok) {
+        const errorData = await response.json()
+        return {
+          data: null,
+          error: errorData,
+          status: response.status,
+          statusText: response.statusText
+        }
+      }
       
+      // Если нет select параметров, просто возвращаем успешный результат
+      if (!this.queryParams.has('select')) {
+        return {
+          data: null,
+          error: null,
+          status: response.status,
+          statusText: response.statusText
+        }
+      }
+      
+      // Если есть select параметры, делаем отдельный запрос для получения данных
+      // Используем простую логику - возвращаем последнюю вставленную запись
+      try {
+        const selectPath = `rest/v1/${this.table}?${this.queryParams.toString()}&order=created_at.desc&limit=1`
+        const selectResponse = await this.makeRequest(selectPath, { method: 'GET' })
+        
+        if (selectResponse.ok) {
+          const selectData = await selectResponse.json()
+          let resultData = selectData
+          
+          // Если используется single() или maybeSingle(), извлекаем первый элемент
+          if (this.isSingle && Array.isArray(selectData)) {
+            if (selectData.length === 0) {
+              if (this.isMaybeSingle) {
+                resultData = null
+              } else {
+                return {
+                  data: null,
+                  error: { message: 'No rows found', code: 'PGRST116' },
+                  status: 406,
+                  statusText: 'Not Acceptable'
+                }
+              }
+            } else {
+              resultData = selectData[0]
+            }
+          }
+          
+          return {
+            data: resultData,
+            error: null,
+            status: response.status,
+            statusText: response.statusText
+          }
+        }
+      } catch (selectError) {
+        console.warn('Failed to fetch inserted data:', selectError)
+      }
+      
+      // Если не удалось получить данные, возвращаем успешный результат без данных
       return {
-        data: response.ok ? data : null,
-        error: response.ok ? null : data,
+        data: null,
+        error: null,
         status: response.status,
         statusText: response.statusText
       }
@@ -495,18 +608,82 @@ class SupabaseQueryBuilder {
     }
   }
 
-  async update(values: any): Promise<SupabaseResponse> {
+  update(values: any) {
+    // Создаем новый QueryBuilder для цепочки вызовов
+    const builder = new SupabaseQueryBuilder(this.table, this.makeRequest)
+    builder.updateData = values
+    builder.operation = 'update'
+    // Копируем существующие параметры запроса
+    builder.queryParams = new URLSearchParams(this.queryParams)
+    builder.selectColumns = this.selectColumns
+    builder.isSingle = this.isSingle
+    builder.isMaybeSingle = this.isMaybeSingle
+    return builder
+  }
+
+  async _executeUpdate(values: any): Promise<SupabaseResponse> {
     try {
-      const path = `rest/v1/${this.table}?${this.queryParams.toString()}`
+      // Для UPDATE операций создаем отдельные queryParams без limit
+      const updateParams = new URLSearchParams()
+      
+      // Копируем все параметры кроме limit и select
+      for (const [key, value] of this.queryParams.entries()) {
+        if (key !== 'limit' && key !== 'select') {
+          updateParams.set(key, value)
+        }
+      }
+      
+      // Добавляем select если он был указан
+      if (this.queryParams.has('select')) {
+        updateParams.set('select', this.queryParams.get('select')!)
+      }
+      
+      const path = `rest/v1/${this.table}?${updateParams.toString()}`
       const response = await this.makeRequest(path, {
         method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(values)
       })
       
-      const data = await response.json()
+      // Для UPDATE операций Supabase может возвращать 204 No Content без тела
+      let data
+      if (response.status === 204) {
+        // Для статуса 204 (успешное обновление без возврата данных)
+        // Если используется .select(), то это означает успешное обновление
+        data = this.queryParams.has('select') ? [] : null
+      } else {
+        const text = await response.text()
+        data = text ? JSON.parse(text) : null
+      }
+      
+      // Если используется single() или maybeSingle(), извлекаем первый элемент из массива
+      let resultData = data
+      if (this.isSingle && response.ok && Array.isArray(data)) {
+        if (data.length === 0) {
+          if (this.isMaybeSingle) {
+            resultData = null
+          } else {
+            // Для UPDATE операций со статусом 204 и .single() - это успех
+            if (response.status === 204) {
+              resultData = null // Успешное обновление, но данные не возвращены
+            } else {
+              return {
+                data: null,
+                error: { message: 'No rows found' },
+                status: 404,
+                statusText: 'Not Found'
+              }
+            }
+          }
+        } else {
+          resultData = data[0]
+        }
+      }
       
       return {
-        data: response.ok ? data : null,
+        data: response.ok ? resultData : null,
         error: response.ok ? null : data,
         status: response.status,
         statusText: response.statusText

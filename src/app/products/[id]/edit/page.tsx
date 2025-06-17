@@ -364,7 +364,7 @@ export default function EditProductPage({ params }: ProductPageProps) {
           <div className="space-y-2">
             {formData.images.map((image, index) => (
               <div key={index} className="flex items-center gap-2 p-2 border rounded">
-                <img src={image} alt={`Изображение ${index + 1}`} className="w-16 h-16 object-cover rounded" />
+                <img src={`/api/image-proxy?url=${encodeURIComponent(image)}`} alt={`Изображение ${index + 1}`} className="w-16 h-16 object-cover rounded" />
                 <span className="flex-1 text-sm text-gray-600 truncate">{image}</span>
                 <button
                   type="button"
@@ -405,4 +405,4 @@ export default function EditProductPage({ params }: ProductPageProps) {
       </form>
     </main>
   )
-} 
+}

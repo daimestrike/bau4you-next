@@ -61,10 +61,10 @@ export async function POST(request: NextRequest) {
       console.log('❌ No authorization header found')
     }
     
-    // Fallback user ID если аутентификация не удалась
+    // Если аутентификация не удалась, возвращаем ошибку
     if (!userId) {
-      userId = '0fac74b6-f93d-4f27-9985-628b03df0968'
-      console.log('⚠️ Using fallback User ID:', userId)
+      console.log('❌ User not authenticated')
+      return NextResponse.json({ error: 'Необходима авторизация для создания товара' }, { status: 401 })
     }
     
     // Получаем данные товара из тела запроса
@@ -110,4 +110,4 @@ export async function POST(request: NextRequest) {
     console.error('❌ Unexpected error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-} 
+}

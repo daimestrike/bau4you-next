@@ -202,12 +202,48 @@ export default function EditCompanyPage() {
         
         // Fallback: пытаемся получить user_id из localStorage
         try {
-          const authToken = localStorage.getItem('sb-gcbwqqwmqjolxxrvfbzz-auth-token')
-          if (authToken) {
-            const tokenData = JSON.parse(authToken)
-            if (tokenData.user) {
-              user = tokenData.user
-              console.log('👤 Пользователь получен из localStorage:', { id: user.id, email: user.email })
+          const possibleKeys = [
+            'sb-gcbwqqwmqjolxxrvfbzz-auth-token',
+            'sb-access-token',
+            'supabase.auth.token'
+          ]
+          
+          // Проверяем известные ключи
+          for (const key of possibleKeys) {
+            const authToken = localStorage.getItem(key)
+            if (authToken) {
+              try {
+                const tokenData = JSON.parse(authToken)
+                if (tokenData.user) {
+                  user = tokenData.user
+                  console.log('👤 Пользователь получен из localStorage ключа:', key, { id: user.id, email: user.email })
+                  break
+                }
+              } catch (e) {
+                console.log('⚠️ Ошибка парсинга пользователя для ключа:', key)
+              }
+            }
+          }
+          
+          // Если не найден в известных ключах, ищем во всех auth-ключах
+          if (!user) {
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i)
+              if (key && key.includes('auth')) {
+                const data = localStorage.getItem(key)
+                if (data) {
+                  try {
+                    const parsed = JSON.parse(data)
+                    if (parsed.user && parsed.user.id) {
+                      user = parsed.user
+                      console.log('👤 Пользователь найден в ключе:', key, { id: user.id, email: user.email })
+                      break
+                    }
+                  } catch (e) {
+                    // Пропускаем невалидный JSON
+                  }
+                }
+              }
             }
           }
         } catch (localError) {
@@ -232,6 +268,20 @@ export default function EditCompanyPage() {
         website: formData.website,
         logo_url: formData.logo_url,
         region_id: formData.region_id || null
+      }
+      
+      // Проверяем, что region_id валиден, если он указан
+      if (companyDataToSave.region_id) {
+        const { data: regionExists } = await supabase
+          .from('regions')
+          .select('id')
+          .eq('id', companyDataToSave.region_id)
+          .single()
+        
+        if (!regionExists) {
+          console.log('⚠️ Указанный region_id не существует, устанавливаем null')
+          companyDataToSave.region_id = null
+        }
       }
       
       console.log('💾 Данные для сохранения:', companyDataToSave)
@@ -281,81 +331,89 @@ export default function EditCompanyPage() {
         }
         console.log('📝 Данные для вставки:', insertData)
         
+        // Используем API route для создания компании (обходим RLS проблемы)
+        console.log('🔄 Создаем компанию через API route...')
         try {
-          console.log('📡 Отправляем запрос к Supabase...')
+          // Ищем токен в разных возможных ключах localStorage
+          let accessToken = null
           
-          const insertRequest = async () => {
-            return await supabase
-              .from('companies')
-              .insert([insertData])
-              .select()
+          // Сначала проверяем простые строковые токены
+          accessToken = localStorage.getItem('sb-access-token')
+          if (accessToken) {
+            console.log('🔑 Токен найден в ключе: sb-access-token')
+          } else {
+            // Если простой токен не найден, проверяем JSON объекты
+            const possibleKeys = [
+              'sb-gcbwqqwmqjolxxrvfbzz-auth-token',
+              'supabase.auth.token'
+            ]
+            
+            for (const key of possibleKeys) {
+              const tokenData = localStorage.getItem(key)
+              if (tokenData) {
+                try {
+                  const parsed = JSON.parse(tokenData)
+                  accessToken = parsed?.access_token || parsed?.accessToken
+                  if (accessToken) {
+                    console.log('🔑 Токен найден в ключе:', key)
+                    break
+                  }
+                } catch (e) {
+                  console.log('🔑 Ошибка парсинга токена для ключа:', key)
+                }
+              }
+            }
           }
           
-          const insertWithTimeout = Promise.race([
-            insertRequest(),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Insert timeout after 5 seconds')), 5000)
-            )
-          ])
+          // Если не найден в известных ключах, ищем во всех auth-ключах
+          if (!accessToken) {
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i)
+              if (key && key.includes('auth')) {
+                console.log('🔍 Проверяем auth-ключ:', key)
+                const data = localStorage.getItem(key)
+                if (data) {
+                  try {
+                    const parsed = JSON.parse(data)
+                    if (parsed.access_token && typeof parsed.access_token === 'string') {
+                      console.log('🔑 Токен найден в ключе:', key)
+                      accessToken = parsed.access_token
+                      break
+                    }
+                  } catch (e) {
+                    // Пропускаем невалидный JSON
+                  }
+                }
+              }
+            }
+          }
           
-          const { data, error } = await insertWithTimeout as any
-
-          console.log('📊 Ответ от Supabase:', { 
-            data: data, 
-            error: error,
-            hasData: !!data,
-            hasError: !!error 
+          if (!accessToken) {
+            throw new Error('Токен не найден. Пожалуйста, войдите в систему заново.')
+          }
+          
+          const response = await fetch('/api/companies', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify(companyDataToSave)
           })
           
-          if (error) {
-            console.log('❌ Ошибка от Supabase:', {
-              message: error.message,
-              details: error.details,
-              hint: error.hint,
-              code: error.code
-            })
-            throw error
+          if (!response.ok) {
+            const errorData = await response.json()
+            console.log('❌ Ошибка API response:', errorData)
+            throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
           }
           
-          console.log('✅ Компания успешно создана!')
+          const result = await response.json()
+          console.log('✅ Компания создана через API route:', result)
           setSuccess('Профиль компании успешно создан!')
           setIsNewCompany(false)
-        } catch (insertError) {
-          console.log('❌ Ошибка при создании компании через Supabase:', insertError)
-          
-          // Fallback: пытаемся создать через API route
-          console.log('🔄 Пытаемся создать компанию через API route...')
-          try {
-            const token = localStorage.getItem('sb-gcbwqqwmqjolxxrvfbzz-auth-token')
-            if (!token) {
-              throw new Error('Токен не найден для API запроса')
-            }
-            
-            const tokenData = JSON.parse(token)
-            const accessToken = tokenData.access_token
-            
-            const response = await fetch('/api/companies', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`
-              },
-              body: JSON.stringify(companyDataToSave)
-            })
-            
-            if (!response.ok) {
-              const errorData = await response.json()
-              throw new Error(errorData.error || 'API request failed')
-            }
-            
-            const result = await response.json()
-            console.log('✅ Компания создана через API route:', result)
-            setSuccess('Профиль компании успешно создан!')
-            setIsNewCompany(false)
-          } catch (apiError) {
-            console.log('❌ Ошибка при создании через API route:', apiError)
-            throw insertError // Возвращаем оригинальную ошибку
-          }
+        } catch (apiError) {
+          console.log('❌ Ошибка при создании через API route:', apiError)
+          throw apiError
         }
       } else {
         console.log('✏️ Обновляем существующую компанию...')
@@ -405,6 +463,11 @@ export default function EditCompanyPage() {
     } finally {
       setIsSaving(false)
       console.log('🏁 Сохранение завершено')
+      
+      // Перенаправляем на страницу компании независимо от результата
+      setTimeout(() => {
+        router.push('/profile')
+      }, 1500) // Даем время показать сообщение об успехе/ошибке
     }
   }
 

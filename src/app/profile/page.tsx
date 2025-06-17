@@ -439,7 +439,7 @@ function ProfileDetails() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-4">
                       <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
-                        {employeeCompany.companies.logo_url ? (
+                        {employeeCompany.companies?.logo_url ? (
                           <img
                             src={employeeCompany.companies.logo_url}
                             alt={employeeCompany.companies.name}
@@ -452,10 +452,10 @@ function ProfileDetails() {
                       
                       <div className="flex-1">
                         <Link
-                          href={`/companies/${employeeCompany.companies.id}`}
+                          href={`/companies/${employeeCompany.companies?.id}`}
                           className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors"
                         >
-                          {employeeCompany.companies.name}
+                          {employeeCompany.companies?.name || 'Неизвестная компания'}
                         </Link>
                         
                         <div className="mt-1 space-y-1">
@@ -465,7 +465,7 @@ function ProfileDetails() {
                             </p>
                           )}
                           
-                          {employeeCompany.companies.type && (
+                          {employeeCompany.companies?.type && (
                             <p className="text-sm text-gray-600">
                               <span className="font-medium">Тип:</span> {
                                 employeeCompany.companies.type === 'contractor' ? 'Подрядчик' :
@@ -476,7 +476,7 @@ function ProfileDetails() {
                             </p>
                           )}
                           
-                          {employeeCompany.companies.location && (
+                          {employeeCompany.companies?.location && (
                             <p className="text-sm text-gray-600">
                               <MapPin className="w-4 h-4 inline mr-1" />
                               {employeeCompany.companies.location}
