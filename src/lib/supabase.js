@@ -386,6 +386,7 @@ export const signIn = async (email, password) => {
 
 export const signUp = async (email, password, userData = {}) => {
   try {
+    console.log('🔄 Начинаем регистрацию через прокси...')
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -394,10 +395,36 @@ export const signUp = async (email, password, userData = {}) => {
       }
     })
     
-    if (error) throw error
-    return { data, error: null }
+    console.log('📊 Результат регистрации:', { data, error })
+    
+    if (error) {
+      console.error('❌ Ошибка при регистрации:', error)
+      return { data: null, error }
+    }
+    
+    // Проверяем, есть ли сессия после регистрации
+    if (data?.session) {
+      console.log('✅ Сессия создана автоматически после регистрации')
+      return { data, error: null }
+    }
+    
+    // Если сессии нет, пытаемся войти вручную
+    console.log('🔄 Пытаемся войти после регистрации...')
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    })
+    
+    if (signInError) {
+      console.error('❌ Ошибка при входе после регистрации:', signInError)
+      // Возвращаем успех регистрации, даже если автоматический вход не удался
+      return { data, error: null }
+    }
+    
+    console.log('✅ Успешный вход после регистрации')
+    return { data: signInData, error: null }
   } catch (error) {
-    console.error('Error signing up:', error)
+    console.error('❌ Исключение при регистрации:', error)
     return { data: null, error }
   }
 }

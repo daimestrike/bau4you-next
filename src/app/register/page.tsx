@@ -69,8 +69,20 @@ export default function RegisterPage() {
         throw error
       }
 
-      // Автоматически входим после регистрации (временно убираем проверку email)
-      router.push('/dashboard')
+      console.log('📊 Данные после регистрации:', data)
+      
+      // Проверяем, есть ли сессия после регистрации
+      const session = data?.session || data?.user?.session
+      if (session || data?.user) {
+        console.log('✅ Сессия найдена, перенаправляем на dashboard')
+        // Ждем немного, чтобы сессия успела установиться
+        await new Promise(resolve => setTimeout(resolve, 500))
+        router.push('/dashboard')
+      } else {
+        console.log('❌ Сессия не найдена, перенаправляем на login')
+        // Если сессия не установилась, перенаправляем на логин с сообщением
+        router.push('/login?message=registration_success')
+      }
     } catch (err: unknown) {
       const error = err as Error
       setError(error.message || 'Произошла ошибка при регистрации')

@@ -114,4 +114,4 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
   }, [router, redirectTo, redirectOnSuccess, requireAuth])
 
   return { user, isLoading, isAuthenticated }
-} 
+}

@@ -138,10 +138,47 @@ class SupabaseProxyClient {
           })
         })
         
-        return await response.json()
+        const responseData = await response.json()
+        console.log('📊 SignUp Response Data:', responseData)
+        
+        if (responseData.access_token) {
+          this.accessToken = responseData.access_token
+          this.refreshToken = responseData.refresh_token
+          
+          // Сохраняем в localStorage
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('sb-access-token', responseData.access_token)
+            localStorage.setItem('sb-refresh-token', responseData.refresh_token)
+            localStorage.setItem('sb-user', JSON.stringify(responseData.user))
+          }
+          
+          // Возвращаем в формате Supabase
+          return {
+            data: {
+              user: responseData.user,
+              session: {
+                access_token: responseData.access_token,
+                refresh_token: responseData.refresh_token,
+                expires_in: responseData.expires_in,
+                token_type: responseData.token_type,
+                user: responseData.user
+              }
+            },
+            error: null
+          }
+        } else {
+          // Возвращаем данные как есть, если нет токена (может быть требуется подтверждение email)
+          return {
+            data: responseData,
+            error: responseData.error || null
+          }
+        }
       } catch (error) {
         console.error('❌ Sign up error:', error)
-        return { error }
+        return { 
+          data: null,
+          error: { message: error instanceof Error ? error.message : 'Ошибка сети' }
+        }
       }
     },
 

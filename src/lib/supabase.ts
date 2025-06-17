@@ -3,7 +3,13 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false
+  }
+})
 export { createClient }
 
 // Auth functions
@@ -14,7 +20,8 @@ export const signUp = async (email: string, password: string, userData: Record<s
       email,
       password,
       options: {
-        data: userData // Метаданные для создания профиля через триггер
+        data: userData, // Метаданные для создания профиля через триггер
+        emailRedirectTo: undefined // Отключаем редирект для подтверждения email
       }
     })
     
@@ -90,16 +97,26 @@ export const signUp = async (email: string, password: string, userData: Record<s
       }
     }
     
-    // Если регистрация успешна, сразу входим (обходим подтверждение email)
+    // Проверяем, есть ли сессия после регистрации
+    if (signUpData.session) {
+      console.log('✅ Сессия создана автоматически после регистрации')
+      return { data: signUpData, error: null }
+    }
+    
+    // Если сессии нет, пытаемся войти вручную
+    console.log('🔄 Пытаемся войти после регистрации...')
     const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password
     })
     
     if (signInError) {
-      console.error('Ошибка при входе после регистрации:', signInError)
+      console.error('❌ Ошибка при входе после регистрации:', signInError)
+      // Возвращаем успех регистрации, даже если автоматический вход не удался
+      return { data: signUpData, error: null }
     }
     
+    console.log('✅ Успешный вход после регистрации')
     return { data: signInData, error: signInError }
   } catch (error) {
     console.error('Исключение при регистрации:', error)

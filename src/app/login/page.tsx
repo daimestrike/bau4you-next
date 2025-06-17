@@ -9,6 +9,7 @@ export default function LoginPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
@@ -18,6 +19,14 @@ export default function LoginPage() {
   // Фикс гидратации - устанавливаем mounted на клиенте
   useEffect(() => {
     setMounted(true)
+    
+    // Проверяем URL параметры для сообщений
+    const urlParams = new URLSearchParams(window.location.search)
+    const message = urlParams.get('message')
+    
+    if (message === 'registration_success') {
+      setSuccessMessage('Регистрация прошла успешно! Теперь войдите в свой аккаунт.')
+    }
   }, [])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,6 +110,12 @@ export default function LoginPage() {
           {error && (
             <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
               {error}
+            </div>
+          )}
+          
+          {successMessage && (
+            <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
+              {successMessage}
             </div>
           )}
 
