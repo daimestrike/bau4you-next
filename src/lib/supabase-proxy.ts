@@ -403,7 +403,7 @@ class SupabaseQueryBuilder {
   }
 
   or(query: string) {
-    this.queryParams.set('or', query)
+    this.queryParams.set('or', `(${query})`)
     return this
   }
 

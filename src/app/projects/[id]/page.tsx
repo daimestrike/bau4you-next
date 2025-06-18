@@ -16,7 +16,8 @@ import {
   TrashIcon,
   PaperAirplaneIcon,
   ShareIcon,
-  DocumentDuplicateIcon
+  DocumentDuplicateIcon,
+  EllipsisVerticalIcon
 } from '@heroicons/react/24/outline'
 import ProjectClient from './ProjectClient'
 
@@ -240,6 +241,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [error, setError] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [isOwner, setIsOwner] = useState(false)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
 
   useEffect(() => {
     const loadProjectData = async () => {
@@ -286,6 +288,23 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
     loadProjectData()
   }, [params])
+
+  // Закрытие мобильного меню при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showMobileMenu) {
+        const target = event.target as Element
+        if (!target.closest('.mobile-menu-container')) {
+          setShowMobileMenu(false)
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showMobileMenu])
 
   const handleDeleteProject = async () => {
     if (!project || !isOwner) return
@@ -437,89 +456,151 @@ ${project.company_requirements.map((req: any, index: number) =>
         </nav>
 
         {/* Project Header */}
-        <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-8 mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+        <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-4 md:p-8 mb-8">
+          <div className="flex flex-col gap-6">
             <div className="flex-1">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1 pr-4">
+                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">{project.name}</h1>
                 </div>
                 
                 {/* Action Buttons */}
-                <div className="flex items-center gap-3">
-                  {/* Share and Copy buttons - always visible */}
-                  <button
-                    onClick={handleShareProject}
-                    className="inline-flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    title="Поделиться проектом"
-                  >
-                    <ShareIcon className="h-4 w-4 mr-2" />
-                    Поделиться
-                  </button>
-                  
-                  <button
-                    onClick={handleCopyProject}
-                    className="inline-flex items-center px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                    title="Скопировать информацию о проекте"
-                  >
-                    <DocumentDuplicateIcon className="h-4 w-4 mr-2" />
-                    Копировать
-                  </button>
-
-                  {isOwner ? (
-                    // Owner buttons
-                    <>
-                      <Link
-                        href={`/projects/${project.id}/edit`}
-                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        <PencilIcon className="h-4 w-4 mr-2" />
-                        Редактировать
-                      </Link>
-                      <button
-                        onClick={handleDeleteProject}
-                        className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                      >
-                        <TrashIcon className="h-4 w-4 mr-2" />
-                        Удалить
-                      </button>
-                    </>
-                  ) : currentUser ? (
-                    // Non-owner user button - will be handled by ProjectClient
-                    <div id="proposal-button-placeholder"></div>
-                  ) : (
-                    // Not logged in
-                    <Link
-                      href="/login"
-                      className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
+                <div className="flex items-center gap-2">
+                  {/* Desktop buttons - hidden on mobile */}
+                  <div className="hidden md:flex items-center gap-3">
+                    {/* Share and Copy buttons - always visible */}
+                    <button
+                      onClick={handleShareProject}
+                      className="inline-flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      title="Поделиться проектом"
                     >
-                      Войти для отправки предложения
-                    </Link>
-                  )}
+                      <ShareIcon className="h-4 w-4 mr-2" />
+                      Поделиться
+                    </button>
+                    
+                    <button
+                      onClick={handleCopyProject}
+                      className="inline-flex items-center px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                      title="Скопировать информацию о проекте"
+                    >
+                      <DocumentDuplicateIcon className="h-4 w-4 mr-2" />
+                      Копировать
+                    </button>
+
+                    {isOwner ? (
+                      // Owner buttons
+                      <>
+                        <Link
+                          href={`/projects/${project.id}/edit`}
+                          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          <PencilIcon className="h-4 w-4 mr-2" />
+                          Редактировать
+                        </Link>
+                        <button
+                          onClick={handleDeleteProject}
+                          className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                        >
+                          <TrashIcon className="h-4 w-4 mr-2" />
+                          Удалить
+                        </button>
+                      </>
+                    ) : currentUser ? (
+                      // Non-owner user button - will be handled by ProjectClient
+                      <div id="proposal-button-placeholder"></div>
+                    ) : null}
+                  </div>
+
+                  {/* Mobile menu button */}
+                   <div className="md:hidden relative mobile-menu-container">
+                     <button
+                       onClick={() => setShowMobileMenu(!showMobileMenu)}
+                       className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                       title="Меню действий"
+                     >
+                       <EllipsisVerticalIcon className="h-5 w-5 text-gray-700" />
+                     </button>
+                     
+                     {/* Mobile dropdown menu */}
+                     {showMobileMenu && (
+                       <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                         <div className="py-2">
+                          <button
+                            onClick={() => {
+                              handleShareProject()
+                              setShowMobileMenu(false)
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <ShareIcon className="h-4 w-4" />
+                            Поделиться
+                          </button>
+                          
+                          <button
+                            onClick={() => {
+                              handleCopyProject()
+                              setShowMobileMenu(false)
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <DocumentDuplicateIcon className="h-4 w-4" />
+                            Копировать
+                          </button>
+
+                          {isOwner ? (
+                            <>
+                              <Link
+                                href={`/projects/${project.id}/edit`}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                onClick={() => setShowMobileMenu(false)}
+                              >
+                                <PencilIcon className="h-4 w-4" />
+                                Редактировать
+                              </Link>
+                              <button
+                                onClick={() => {
+                                  handleDeleteProject()
+                                  setShowMobileMenu(false)
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                                Удалить
+                              </button>
+                            </>
+                          ) : currentUser ? (
+                            <div className="px-4 py-2">
+                              <div id="proposal-button-mobile-placeholder"></div>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               
-              <p className="text-gray-700 text-lg leading-relaxed mb-6">
+              <div className="text-gray-700 text-base md:text-lg leading-relaxed mb-6 text-left whitespace-pre-wrap break-words">
                 {project.description}
-              </p>
+              </div>
 
               {/* Owner Info */}
               {project.profiles && (
-                <div className="flex items-center gap-3 p-4 bg-white/50 rounded-xl border border-white/30">
+                <div className="flex items-center gap-3 p-3 md:p-4 bg-white/50 rounded-xl border border-white/30">
                   <Link 
                     href={`/profile/${project.profiles.id}`}
-                    className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center hover:scale-105 transition-transform"
+                    className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center hover:scale-105 transition-transform flex-shrink-0"
                   >
-                      <UserIcon className="h-6 w-6 text-white" />
+                      <UserIcon className="h-5 w-5 md:h-6 md:w-6 text-white" />
                   </Link>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <Link 
                       href={`/profile/${project.profiles.id}`}
-                      className="font-medium text-gray-900 hover:text-blue-600 transition-colors"
+                      className="font-medium text-gray-900 hover:text-blue-600 transition-colors block truncate"
                     >
                       {getProfileDisplayName(project.profiles) || 'Владелец проекта'}
                     </Link>
-                    <p className="text-sm text-gray-600">{project.profiles.email}</p>
+                    <p className="text-sm text-gray-600 truncate">{project.profiles.email}</p>
                     <p className="text-xs text-gray-500">
                       Создано: {formatDate(project.created_at)}
                     </p>
@@ -531,78 +612,78 @@ ${project.company_requirements.map((req: any, index: number) =>
         </div>
 
         {/* Project Details Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
           {/* Budget */}
-          <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-lg border border-white/20 p-6 hover:shadow-xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
-                <CurrencyDollarIcon className="h-5 w-5 text-white" />
+          <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-lg border border-white/20 p-4 md:p-6 hover:shadow-xl transition-all duration-300">
+            <div className="flex items-center gap-2 md:gap-3 mb-3">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <CurrencyDollarIcon className="h-4 w-4 md:h-5 md:w-5 text-white" />
               </div>
-              <h3 className="font-semibold text-gray-900">Бюджет</h3>
+              <h3 className="font-semibold text-gray-900 text-sm md:text-base">Бюджет</h3>
             </div>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-lg md:text-2xl font-bold text-gray-900 break-words">
               {project.budget ? formatCurrency(project.budget) : 'По договоренности'}
             </p>
           </div>
 
           {/* Category */}
-          <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-lg border border-white/20 p-6 hover:shadow-xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg flex items-center justify-center">
-                <BuildingOfficeIcon className="h-5 w-5 text-white" />
+          <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-lg border border-white/20 p-4 md:p-6 hover:shadow-xl transition-all duration-300">
+            <div className="flex items-center gap-2 md:gap-3 mb-3">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <BuildingOfficeIcon className="h-4 w-4 md:h-5 md:w-5 text-white" />
               </div>
-              <h3 className="font-semibold text-gray-900">Категория</h3>
+              <h3 className="font-semibold text-gray-900 text-sm md:text-base">Категория</h3>
             </div>
-            <p className="text-lg font-medium text-gray-700">
+            <p className="text-base md:text-lg font-medium text-gray-700 break-words">
               {project.category || 'Не указана'}
             </p>
           </div>
 
           {/* Location */}
-          <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-lg border border-white/20 p-6 hover:shadow-xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
-                <MapPinIcon className="h-5 w-5 text-white" />
+          <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-lg border border-white/20 p-4 md:p-6 hover:shadow-xl transition-all duration-300">
+            <div className="flex items-center gap-2 md:gap-3 mb-3">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <MapPinIcon className="h-4 w-4 md:h-5 md:w-5 text-white" />
               </div>
-              <h3 className="font-semibold text-gray-900">Местоположение</h3>
+              <h3 className="font-semibold text-gray-900 text-sm md:text-base">Местоположение</h3>
             </div>
-            <p className="text-lg font-medium text-gray-700">{location}</p>
+            <p className="text-base md:text-lg font-medium text-gray-700 break-words">{location}</p>
           </div>
 
           {/* Deadline */}
-          <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-lg border border-white/20 p-6 hover:shadow-xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
-                <CalendarIcon className="h-5 w-5 text-white" />
+          <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-lg border border-white/20 p-4 md:p-6 hover:shadow-xl transition-all duration-300">
+            <div className="flex items-center gap-2 md:gap-3 mb-3">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <CalendarIcon className="h-4 w-4 md:h-5 md:w-5 text-white" />
               </div>
-              <h3 className="font-semibold text-gray-900">Срок выполнения</h3>
+              <h3 className="font-semibold text-gray-900 text-sm md:text-base">Срок выполнения</h3>
             </div>
-            <p className="text-lg font-medium text-gray-700">
+            <p className="text-base md:text-lg font-medium text-gray-700 break-words">
               {project.deadline ? formatDate(project.deadline) : 'Не указан'}
             </p>
           </div>
         </div>
 
         {/* Materials and Requirements */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8 mb-8">
           {/* Materials List */}
           {project.materials_list && project.materials_list.length > 0 && (
-            <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                <DocumentTextIcon className="h-6 w-6 text-blue-600" />
+            <div className="bg-white/70 backdrop-blur-md rounded-xl md:rounded-2xl shadow-xl border border-white/20 p-4 md:p-8">
+              <h2 className="text-lg md:text-2xl font-bold text-gray-900 mb-4 md:mb-6 flex items-center gap-2 md:gap-3">
+                <DocumentTextIcon className="h-5 w-5 md:h-6 md:w-6 text-blue-600 flex-shrink-0" />
                 Список материалов
               </h2>
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                 {project.materials_list.map((material: any, index: number) => (
-                  <div key={index} className="p-4 bg-white/50 rounded-xl border border-white/30">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-semibold text-gray-900">{material.name}</h3>
-                      <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                  <div key={index} className="p-3 md:p-4 bg-white/50 rounded-lg md:rounded-xl border border-white/30">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
+                      <h3 className="font-semibold text-gray-900 text-sm md:text-base break-words">{material.name}</h3>
+                      <span className="text-xs md:text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded self-start">
                         {material.category}
                       </span>
                     </div>
-                    <p className="text-gray-700 mb-2">{material.description}</p>
-                    <div className="flex justify-between items-center text-sm">
+                    <p className="text-gray-700 mb-2 text-sm md:text-base break-words">{material.description}</p>
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-0 text-xs md:text-sm">
                       <span className="text-gray-600">
                         Количество: <span className="font-medium">{material.quantity} {material.unit}</span>
                       </span>
@@ -620,23 +701,23 @@ ${project.company_requirements.map((req: any, index: number) =>
 
           {/* Company Requirements */}
           {project.company_requirements && project.company_requirements.length > 0 && (
-            <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                <BuildingOfficeIcon className="h-6 w-6 text-purple-600" />
+            <div className="bg-white/70 backdrop-blur-md rounded-xl md:rounded-2xl shadow-xl border border-white/20 p-4 md:p-8">
+              <h2 className="text-lg md:text-2xl font-bold text-gray-900 mb-4 md:mb-6 flex items-center gap-2 md:gap-3">
+                <BuildingOfficeIcon className="h-5 w-5 md:h-6 md:w-6 text-purple-600 flex-shrink-0" />
                 Требования к компаниям
               </h2>
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                 {project.company_requirements.map((req: any, index: number) => (
-                  <div key={index} className="p-4 bg-white/50 rounded-xl border border-white/30">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-semibold text-gray-900">{req.role}</h3>
-                      <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                  <div key={index} className="p-3 md:p-4 bg-white/50 rounded-lg md:rounded-xl border border-white/30">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
+                      <h3 className="font-semibold text-gray-900 text-sm md:text-base break-words">{req.role}</h3>
+                      <span className="text-xs md:text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded self-start">
                         {req.type}
                       </span>
                     </div>
-                    <p className="text-gray-700 mb-2">{req.description}</p>
+                    <p className="text-gray-700 mb-2 text-sm md:text-base break-words">{req.description}</p>
                     {(req.budget_min || req.budget_max) && (
-                      <div className="text-sm text-gray-600">
+                      <div className="text-xs md:text-sm text-gray-600">
                         Бюджет: {req.budget_min && formatCurrency(req.budget_min)}
                         {req.budget_min && req.budget_max && ' - '}
                         {req.budget_max && formatCurrency(req.budget_max)}

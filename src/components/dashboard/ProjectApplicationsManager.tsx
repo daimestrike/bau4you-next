@@ -129,6 +129,20 @@ export default function ProjectApplicationsManager({ userId }: ProjectApplicatio
         return
       }
 
+      console.log('Raw applications data:', data)
+      console.log('Applications count:', data?.length || 0)
+      if (data && data.length > 0) {
+        console.log('First application structure:', {
+          id: data[0].id,
+          project_id: data[0].project_id,
+          company_id: data[0].company_id,
+          projects: data[0].projects,
+          companies: data[0].companies,
+          hasProjects: !!data[0].projects,
+          hasCompanies: !!data[0].companies
+        })
+      }
+
       setApplications(data || [])
     } catch (error) {
       console.error('Error loading applications:', {
@@ -259,14 +273,14 @@ export default function ProjectApplicationsManager({ userId }: ProjectApplicatio
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
                     <h4 className="font-semibold text-gray-900">
-                      {application.projects.name}
+                      {application.projects?.name || 'Проект не найден'}
                     </h4>
                     <span className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(application.status)}`}>
                       {getStatusText(application.status)}
                     </span>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">
-                    Заявка от: <strong>{application.companies.name}</strong>
+                    Заявка от: <strong>{application.companies?.name || 'Компания не найдена'}</strong>
                   </p>
                   <p className="text-sm text-gray-500">
                     {new Date(application.created_at).toLocaleDateString('ru-RU')} в {new Date(application.created_at).toLocaleTimeString('ru-RU')}
@@ -280,13 +294,15 @@ export default function ProjectApplicationsManager({ userId }: ProjectApplicatio
                     <Eye className="w-4 h-4" />
                     <span>Подробнее</span>
                   </button>
-                  <Link
-                    href={`/companies/${application.companies.id}`}
-                    className="flex items-center space-x-1 bg-gray-600 text-white px-3 py-1 rounded-lg hover:bg-gray-700 transition-colors text-sm"
-                  >
-                    <Building2 className="w-4 h-4" />
-                    <span>Профиль</span>
-                  </Link>
+                  {application.companies?.id && (
+                    <Link
+                      href={`/companies/${application.companies.id}`}
+                      className="flex items-center space-x-1 bg-gray-600 text-white px-3 py-1 rounded-lg hover:bg-gray-700 transition-colors text-sm"
+                    >
+                      <Building2 className="w-4 h-4" />
+                      <span>Профиль</span>
+                    </Link>
+                  )}
                 </div>
               </div>
 
@@ -294,15 +310,15 @@ export default function ProjectApplicationsManager({ userId }: ProjectApplicatio
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
                 <div className="flex items-center space-x-2">
                   <DollarSign className="w-4 h-4" />
-                  <span>Бюджет: {application.projects.budget ? application.projects.budget.toLocaleString('ru-RU') : 'Не указан'} ₽</span>
+                  <span>Бюджет: {application.projects?.budget ? application.projects.budget.toLocaleString('ru-RU') : 'Не указан'} ₽</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <MapPin className="w-4 h-4" />
-                  <span>{application.projects.location}</span>
+                  <span>{application.projects?.location || 'Не указано'}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-4 h-4" />
-                  <span>До: {application.projects.deadline ? new Date(application.projects.deadline).toLocaleDateString('ru-RU') : 'Не указан'}</span>
+                  <span>До: {application.projects?.deadline ? new Date(application.projects.deadline).toLocaleDateString('ru-RU') : 'Не указан'}</span>
                 </div>
               </div>
             </div>
@@ -327,7 +343,7 @@ export default function ProjectApplicationsManager({ userId }: ProjectApplicatio
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-semibold text-gray-900">
-                  Заявка на проект: {selectedApplication.projects.name}
+                  Заявка на проект: {selectedApplication.projects?.name || 'Проект не найден'}
                 </h3>
                 <button
                   onClick={() => setSelectedApplication(null)}
@@ -345,26 +361,26 @@ export default function ProjectApplicationsManager({ userId }: ProjectApplicatio
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="font-medium text-gray-900">{selectedApplication.companies.name}</p>
-                    <p className="text-sm text-gray-600">{selectedApplication.companies.type}</p>
-                    {selectedApplication.companies.description && (
+                    <p className="font-medium text-gray-900">{selectedApplication.companies?.name || 'Компания не найдена'}</p>
+                    <p className="text-sm text-gray-600">{selectedApplication.companies?.type || 'Тип не указан'}</p>
+                    {selectedApplication.companies?.description && (
                       <p className="text-sm text-gray-600 mt-2">{selectedApplication.companies.description}</p>
                     )}
                   </div>
                   <div className="space-y-2">
-                    {selectedApplication.companies.email && (
+                    {selectedApplication.companies?.email && (
                       <p className="text-sm text-gray-600 flex items-center">
                         <Mail className="w-4 h-4 mr-2" />
                         {selectedApplication.companies.email}
                       </p>
                     )}
-                    {selectedApplication.companies.phone && (
+                    {selectedApplication.companies?.phone && (
                       <p className="text-sm text-gray-600 flex items-center">
                         <Phone className="w-4 h-4 mr-2" />
                         {selectedApplication.companies.phone}
                       </p>
                     )}
-                    {selectedApplication.companies.website && (
+                    {selectedApplication.companies?.website && (
                       <a 
                         href={selectedApplication.companies.website}
                         target="_blank"

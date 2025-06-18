@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { Bars3Icon } from '@heroicons/react/24/outline'
 import { getCompany, getCompanyPortfolio, getCompanyProducts, getCompanyReviews, getCompanyTeam, getCompanyAchievements, getCompanyUpdates, isFollowingCompany, followCompany, unfollowCompany, addCompanyReview, getCurrentUser } from '@/lib/supabase'
 import SEOHead from '@/components/SEO/SEOHead'
 import { generateCompanySEO, generateBreadcrumbSchema } from '@/lib/seo'
@@ -48,6 +49,8 @@ export default function CompanyPage() {
   const [activeTab, setActiveTab] = useState('overview')
   const [isLoading, setIsLoading] = useState(true)
   const [showReviewForm, setShowReviewForm] = useState(false)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [isOwner, setIsOwner] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
@@ -67,6 +70,23 @@ export default function CompanyPage() {
   useEffect(() => {
     console.log('🔄 isOwner изменился на:', isOwner)
   }, [isOwner])
+
+  // Закрытие мобильного меню при клике вне его области
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setShowMobileMenu(false)
+      }
+    }
+
+    if (showMobileMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showMobileMenu])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -299,30 +319,30 @@ export default function CompanyPage() {
 
         {/* Название компании под обложкой */}
         <div className="container mx-auto px-4 py-4 border-b border-gray-200" suppressHydrationWarning>
-          <div className="flex items-center justify-between">
-            {/* Отступ слева равный ширине логотипа (w-32) + отступ (mr-6) */}
-            <div className="flex items-center ml-32 md:ml-38">
-              <h1 className="text-3xl font-bold text-gray-900 mr-3">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Отступ слева равный ширине логотипа (w-32) + отступ (mr-6) на десктопе */}
+            <div className="flex items-center md:ml-32 lg:ml-38">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mr-3">
                 {company.name}
               </h1>
               {company.verified && (
-                <span className="bg-blue-100 text-blue-800 px-3 py-1 text-sm rounded-full">
+                <span className="bg-blue-100 text-blue-800 px-2 md:px-3 py-1 text-xs md:text-sm rounded-full flex-shrink-0">
                   ✓ Проверено
                 </span>
               )}
             </div>
             
             {/* Кнопки действий */}
-            <div className="flex space-x-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <button
                 onClick={handleFollow}
-                className={`px-8 py-3 rounded-lg font-medium transition-colors cursor-pointer min-w-[140px] ${
+                className={`px-4 sm:px-8 py-2 sm:py-3 rounded-lg font-medium transition-colors cursor-pointer text-sm sm:text-base ${
                   isFollowing
                     ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
                 style={{
-                  minHeight: '44px',
+                  minHeight: '40px',
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -348,13 +368,13 @@ export default function CompanyPage() {
                   return (
                     <Link
                       href={`/companies/${id}/edit`}
-                      className="px-8 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer font-medium min-w-[140px] text-center"
+                      className="px-4 sm:px-8 py-2 sm:py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer font-medium text-center text-sm sm:text-base"
                       onClick={(e) => {
                         console.log('🔗 Клик по кнопке редактирования')
                         console.log('🔗 Переходим на:', `/companies/${id}/edit`)
                       }}
                       style={{ 
-                        minHeight: '44px',
+                        minHeight: '40px',
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -375,9 +395,9 @@ export default function CompanyPage() {
 
         {/* Профиль компании */}
         <div className="container mx-auto px-4 py-6" suppressHydrationWarning>
-          <div className="flex flex-col md:flex-row items-start md:items-end -mt-20 relative z-10">
+          <div className="flex flex-col md:flex-row items-start md:items-end -mt-16 md:-mt-20 relative z-10">
             {/* Логотип */}
-            <div className="w-32 h-32 bg-white rounded-lg shadow-lg flex items-center justify-center overflow-hidden mb-4 md:mb-0 md:mr-6">
+            <div className="w-24 h-24 md:w-32 md:h-32 bg-white rounded-lg shadow-lg flex items-center justify-center overflow-hidden mb-4 md:mb-0 md:mr-6 flex-shrink-0">
               {company.logo_url ? (
                 <img
                   src={company.logo_url}
@@ -385,26 +405,28 @@ export default function CompanyPage() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-4xl font-bold text-gray-500">
+                <span className="text-2xl md:text-4xl font-bold text-gray-500">
                   {company.name.charAt(0).toUpperCase()}
                 </span>
               )}
             </div>
 
             {/* Информация о компании */}
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex flex-col md:flex-row md:items-end justify-between">
-                <div className="mt-4">
-                  <p className="text-lg text-gray-600 mb-2">
+                <div className="mt-2 md:mt-4">
+                  <p className="text-base md:text-lg text-gray-600 mb-2">
                     {company.type === 'supplier' ? 'Поставщик' : 
                      company.type === 'contractor' ? 'Подрядчик' : 
                      company.type === 'both' ? 'Подрядчик и поставщик' : 
                      company.industry}
                   </p>
-                  <div className="flex items-center text-gray-500 space-x-4">
-                    {company.regions?.name && <span>{company.regions.name}</span>}
-                    {company.employee_count && <span>• {company.employee_count} человек</span>}
-                    {company.founded_year && <span>• С {company.founded_year}</span>}
+                  <div className="flex flex-col sm:flex-row sm:items-center text-gray-500 text-sm md:text-base gap-1 sm:gap-4">
+                    {company.regions?.name && <span className="truncate">{company.regions.name}</span>}
+                    {company.employee_count && <span className="hidden sm:inline">• {company.employee_count} человек</span>}
+                    {company.employee_count && <span className="sm:hidden">{company.employee_count} человек</span>}
+                    {company.founded_year && <span className="hidden sm:inline">• С {company.founded_year}</span>}
+                    {company.founded_year && <span className="sm:hidden">С {company.founded_year}</span>}
                   </div>
                 </div>
               </div>
@@ -416,7 +438,8 @@ export default function CompanyPage() {
       {/* Навигация по табам */}
       <div className="bg-white border-b sticky top-0 z-40" suppressHydrationWarning>
         <div className="container mx-auto px-4" suppressHydrationWarning>
-          <nav className="flex space-x-8">
+          {/* Десктопная навигация */}
+          <nav className="hidden md:flex space-x-8">
             {[
               { id: 'overview', label: 'Обзор' },
               ...(company.type === 'supplier' || company.type === 'both' ? [{ id: 'shop', label: `Магазин${products.length > 0 ? ` (${products.length})` : ''}` }] : []),
@@ -438,31 +461,80 @@ export default function CompanyPage() {
               </button>
             ))}
           </nav>
+
+          {/* Мобильная навигация */}
+          <div className="md:hidden relative" ref={mobileMenuRef}>
+            <button
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              className="flex items-center justify-between w-full py-4 px-2 text-gray-700 hover:text-gray-900"
+            >
+              <span className="font-medium">
+                {[
+                  { id: 'overview', label: 'Обзор' },
+                  ...(company.type === 'supplier' || company.type === 'both' ? [{ id: 'shop', label: `Магазин${products.length > 0 ? ` (${products.length})` : ''}` }] : []),
+                  { id: 'portfolio', label: 'Портфолио' },
+                  { id: 'team', label: 'Команда' },
+                  { id: 'reviews', label: 'Отзывы' },
+                  { id: 'about', label: 'О компании' }
+                ].find(tab => tab.id === activeTab)?.label}
+              </span>
+              <Bars3Icon className="w-5 h-5" />
+            </button>
+
+            {/* Выпадающее меню */}
+            {showMobileMenu && (
+              <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-b-lg shadow-lg z-50">
+                {[
+                  { id: 'overview', label: 'Обзор' },
+                  ...(company.type === 'supplier' || company.type === 'both' ? [{ id: 'shop', label: `Магазин${products.length > 0 ? ` (${products.length})` : ''}` }] : []),
+                  { id: 'portfolio', label: 'Портфолио' },
+                  { id: 'team', label: 'Команда' },
+                  { id: 'reviews', label: 'Отзывы' },
+                  { id: 'about', label: 'О компании' }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id)
+                      setShowMobileMenu(false)
+                    }}
+                    className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors ${
+                      activeTab === tab.id
+                        ? 'bg-blue-50 text-blue-600 font-medium'
+                        : 'text-gray-700'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Контент */}
-      <div className="container mx-auto px-4 py-8" suppressHydrationWarning>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="container mx-auto px-4 py-6 md:py-8" suppressHydrationWarning>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
           {/* Основной контент */}
           <div className="lg:col-span-2">
             {activeTab === 'overview' && (
-              <div className="space-y-6">
+              <div className="space-y-4 md:space-y-6">
                 {/* Описание */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h2 className="text-xl font-semibold mb-4">О компании</h2>
-                  <p className="text-gray-700 leading-relaxed">{company.description}</p>
+                <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
+                  <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">О компании</h2>
+                  <p className="text-gray-700 leading-relaxed text-sm md:text-base">{company.description}</p>
                 </div>
 
                 {/* Специализации */}
                 {company.specializations && company.specializations.length > 0 && (
-                  <div className="bg-white rounded-lg shadow-sm p-6">
-                    <h2 className="text-xl font-semibold mb-4">Специализации</h2>
+                  <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
+                    <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">Специализации</h2>
                     <div className="flex flex-wrap gap-2">
                       {company.specializations.map((spec, index) => (
                         <span
                           key={index}
-                          className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
+                          className="bg-blue-100 text-blue-800 px-2 md:px-3 py-1 rounded-full text-xs md:text-sm"
                         >
                           {spec}
                         </span>
@@ -473,14 +545,14 @@ export default function CompanyPage() {
 
                 {/* Последние обновления */}
                 {updates.length > 0 && (
-                  <div className="bg-white rounded-lg shadow-sm p-6">
-                    <h2 className="text-xl font-semibold mb-4">Последние обновления</h2>
+                  <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
+                    <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">Последние обновления</h2>
                     <div className="space-y-4">
                       {updates.slice(0, 3).map((update: any) => (
                         <div key={update.id} className="border-b border-gray-100 pb-4 last:border-0">
-                          <h3 className="font-medium text-gray-900">{update.title}</h3>
-                          <p className="text-gray-600 mt-1">{update.content}</p>
-                          <p className="text-sm text-gray-500 mt-2">
+                          <h3 className="font-medium text-gray-900 text-sm md:text-base">{update.title}</h3>
+                          <p className="text-gray-600 mt-1 text-sm md:text-base">{update.content}</p>
+                          <p className="text-xs md:text-sm text-gray-500 mt-2">
                             {new Date(update.created_at).toLocaleDateString('ru-RU')}
                           </p>
                         </div>
@@ -492,13 +564,13 @@ export default function CompanyPage() {
             )}
 
             {activeTab === 'shop' && (
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold">Магазин товаров</h2>
+              <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 md:mb-6">
+                  <h2 className="text-lg md:text-xl font-semibold">Магазин товаров</h2>
                   {isOwner && (
                     <Link
                       href="/products/create"
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                      className="bg-blue-600 text-white px-3 md:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base text-center"
                     >
                       Добавить товар
                     </Link>
@@ -507,11 +579,11 @@ export default function CompanyPage() {
 
                 {/* Фильтр по категориям */}
                 {products.length > 0 && (
-                  <div className="mb-6">
+                  <div className="mb-4 md:mb-6">
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => setSelectedCategory('')}
-                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                        className={`px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium transition-colors ${
                           selectedCategory === ''
                             ? 'bg-blue-600 text-white'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -535,13 +607,14 @@ export default function CompanyPage() {
                           <button
                             key={category}
                             onClick={() => setSelectedCategory(category)}
-                            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                            className={`px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium transition-colors ${
                               selectedCategory === category
                                 ? 'bg-blue-600 text-white'
                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                           >
-                            {categoryNames[category] || category} ({categoryProducts.length})
+                            <span className="hidden sm:inline">{categoryNames[category] || category} ({categoryProducts.length})</span>
+                            <span className="sm:hidden">{(categoryNames[category] || category).split(' ')[0]} ({categoryProducts.length})</span>
                           </button>
                         )
                       })}
@@ -688,14 +761,14 @@ export default function CompanyPage() {
             )}
 
             {activeTab === 'portfolio' && (
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold">Портфолио проектов</h2>
-                  <div className="flex space-x-3">
+              <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 md:mb-6">
+                  <h2 className="text-lg md:text-xl font-semibold">Портфолио проектов</h2>
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                     {portfolio.length > 0 && (
                       <Link
                         href={`/companies/${id}/portfolio`}
-                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                        className="px-3 md:px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm md:text-base text-center"
                       >
                         Просмотреть все ({portfolio.length})
                       </Link>
@@ -703,7 +776,7 @@ export default function CompanyPage() {
                     {isOwner && (
                       <Link
                         href={`/companies/${id}/portfolio/add`}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                        className="bg-blue-600 text-white px-3 md:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base text-center"
                       >
                         Добавить проект
                       </Link>
@@ -712,18 +785,18 @@ export default function CompanyPage() {
                 </div>
                 
                 {portfolio.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     {portfolio.slice(0, 4).map((project: any) => (
-                      <div key={project.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div key={project.id} className="border border-gray-200 rounded-lg p-3 md:p-4 hover:shadow-md transition-shadow">
                         {project.images && project.images.length > 0 && (
                           <img
                             src={project.images[0]}
                             alt={project.title}
-                            className="w-full h-48 object-cover rounded-lg mb-4"
+                            className="w-full h-40 md:h-48 object-cover rounded-lg mb-3 md:mb-4"
                           />
                         )}
                         <div className="flex items-start justify-between mb-2">
-                          <h3 className="font-semibold text-lg">{project.title}</h3>
+                          <h3 className="font-semibold text-base md:text-lg">{project.title}</h3>
                           {project.featured && (
                             <span className="bg-yellow-100 text-yellow-800 px-2 py-1 text-xs rounded-full ml-2">
                               Рекомендуемый
@@ -783,10 +856,10 @@ export default function CompanyPage() {
                 </div>
                 
                 {team.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                     {team.map((member: any) => (
-                      <div key={member.id} className="text-center p-4 border border-gray-200 rounded-lg relative">
-                        <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                      <div key={member.id} className="text-center p-3 md:p-4 border border-gray-200 rounded-lg relative">
+                        <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-2 md:mb-3 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
                           {member.avatar_url ? (
                             <img
                               src={member.avatar_url}
@@ -794,24 +867,24 @@ export default function CompanyPage() {
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <span className="text-xl font-medium text-gray-500">
+                            <span className="text-lg md:text-xl font-medium text-gray-500">
                               {member.name.charAt(0).toUpperCase()}
                             </span>
                           )}
                         </div>
-                        <h3 className="font-medium">{member.name}</h3>
-                        <p className="text-sm text-gray-600">{member.position}</p>
+                        <h3 className="font-medium text-sm md:text-base">{member.name}</h3>
+                        <p className="text-xs md:text-sm text-gray-600">{member.position}</p>
                         {member.bio && (
-                          <p className="text-xs text-gray-500 mt-1">{member.bio}</p>
+                          <p className="text-xs text-gray-500 mt-1 line-clamp-2">{member.bio}</p>
                         )}
                         {member.is_key_person && (
-                          <span className="inline-block mt-2 bg-yellow-100 text-yellow-800 px-2 py-1 text-xs rounded">
+                          <span className="inline-block mt-1 md:mt-2 bg-yellow-100 text-yellow-800 px-2 py-1 text-xs rounded">
                             Ключевой сотрудник
                           </span>
                         )}
                         
                         {/* Кнопки действий */}
-                        <div className="mt-3 space-y-2">
+                        <div className="mt-2 md:mt-3 space-y-1 md:space-y-2">
                           {isOwner && (
                             <button
                               onClick={() => handleRemoveTeamMember(member.id, member.name)}
@@ -833,21 +906,21 @@ export default function CompanyPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">Команда не указана</p>
+                  <div className="text-center py-6 md:py-8">
+                    <p className="text-gray-500 text-sm md:text-base">Команда не указана</p>
                   </div>
                 )}
               </div>
             )}
 
             {activeTab === 'reviews' && (
-              <div className="space-y-6">
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold">Отзывы</h2>
+              <div className="space-y-4 md:space-y-6">
+                <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 md:mb-6">
+                    <h2 className="text-lg md:text-xl font-semibold">Отзывы</h2>
                     <button
                       onClick={() => setShowReviewForm(true)}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                      className="bg-blue-600 text-white px-3 md:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base"
                     >
                       Оставить отзыв
                     </button>
@@ -855,16 +928,16 @@ export default function CompanyPage() {
 
                   {/* Статистика отзывов */}
                   {(company.reviews_count || 0) > 0 && (
-                    <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                    <div className="mb-4 md:mb-6 p-3 md:p-4 bg-gray-50 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="flex items-center">
-                            <span className="text-3xl font-bold mr-2">{(company.rating || 0).toFixed(1)}</span>
+                            <span className="text-2xl md:text-3xl font-bold mr-2">{(company.rating || 0).toFixed(1)}</span>
                             <div className="flex items-center">
                               {renderStars(Math.round(company.rating || 0))}
                             </div>
                           </div>
-                          <p className="text-gray-600">{company.reviews_count} отзывов</p>
+                          <p className="text-gray-600 text-sm md:text-base">{company.reviews_count} отзывов</p>
                         </div>
                       </div>
                     </div>
@@ -872,11 +945,11 @@ export default function CompanyPage() {
 
                   {/* Список отзывов */}
                   {reviews.length > 0 ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3 md:space-y-4">
                       {reviews.map((review: any) => (
-                        <div key={review.id} className="border-b border-gray-100 pb-4 last:border-0">
-                          <div className="flex items-start space-x-3">
-                            <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                        <div key={review.id} className="border-b border-gray-100 pb-3 md:pb-4 last:border-0">
+                          <div className="flex items-start space-x-2 md:space-x-3">
+                            <div className="w-8 h-8 md:w-10 md:h-10 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
                               {review.profiles?.avatar_url ? (
                                 <img
                                   src={review.profiles.avatar_url}
@@ -884,37 +957,37 @@ export default function CompanyPage() {
                                   className="w-full h-full rounded-full object-cover"
                                 />
                               ) : (
-                                <span className="text-sm font-medium text-gray-500">
+                                <span className="text-xs md:text-sm font-medium text-gray-500">
                                   {(review.profiles?.name_first || 'П').charAt(0).toUpperCase()}
                                 </span>
                               )}
                             </div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between">
-                                <h4 className="font-medium">{`${review.profiles?.name_first || ''} ${review.profiles?.name_last || ''}`.trim() || 'Пользователь'}</h4>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0">
+                                <h4 className="font-medium text-sm md:text-base truncate">{`${review.profiles?.name_first || ''} ${review.profiles?.name_last || ''}`.trim() || 'Пользователь'}</h4>
                                 <div className="flex items-center">
                                   {renderStars(review.rating)}
-                                  <span className="ml-2 text-sm text-gray-500">
+                                  <span className="ml-2 text-xs md:text-sm text-gray-500">
                                     {new Date(review.created_at).toLocaleDateString('ru-RU')}
                                   </span>
                                 </div>
                               </div>
                               {review.title && (
-                                <h5 className="font-medium text-gray-900 mt-1">{review.title}</h5>
+                                <h5 className="font-medium text-gray-900 mt-1 text-sm md:text-base">{review.title}</h5>
                               )}
                               {review.review_text && (
-                                <p className="text-gray-700 mt-2">{review.review_text}</p>
+                                <p className="text-gray-700 mt-2 text-sm md:text-base">{review.review_text}</p>
                               )}
                               {review.pros && (
                                 <div className="mt-2">
-                                  <span className="text-green-600 font-medium">Плюсы: </span>
-                                  <span className="text-gray-700">{review.pros}</span>
+                                  <span className="text-green-600 font-medium text-sm md:text-base">Плюсы: </span>
+                                  <span className="text-gray-700 text-sm md:text-base">{review.pros}</span>
                                 </div>
                               )}
                               {review.cons && (
                                 <div className="mt-1">
-                                  <span className="text-red-600 font-medium">Минусы: </span>
-                                  <span className="text-gray-700">{review.cons}</span>
+                                  <span className="text-red-600 font-medium text-sm md:text-base">Минусы: </span>
+                                  <span className="text-gray-700 text-sm md:text-base">{review.cons}</span>
                                 </div>
                               )}
                             </div>
@@ -923,8 +996,8 @@ export default function CompanyPage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500">Отзывов пока нет</p>
+                    <div className="text-center py-6 md:py-8">
+                      <p className="text-gray-500 text-sm md:text-base">Отзывов пока нет</p>
                     </div>
                   )}
                 </div>
@@ -932,32 +1005,32 @@ export default function CompanyPage() {
             )}
 
             {activeTab === 'about' && (
-              <div className="space-y-6">
+              <div className="space-y-4 md:space-y-6">
                 {/* Миссия и видение */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h2 className="text-xl font-semibold mb-4">Миссия и видение</h2>
+                <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
+                  <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">Миссия и видение</h2>
                   {company.mission_statement && (
-                    <div className="mb-4">
-                      <h3 className="font-medium text-gray-900 mb-2">Миссия</h3>
-                      <p className="text-gray-700">{company.mission_statement}</p>
+                    <div className="mb-3 md:mb-4">
+                      <h3 className="font-medium text-gray-900 mb-2 text-sm md:text-base">Миссия</h3>
+                      <p className="text-gray-700 text-sm md:text-base">{company.mission_statement}</p>
                     </div>
                   )}
                   {company.vision_statement && (
                     <div>
-                      <h3 className="font-medium text-gray-900 mb-2">Видение</h3>
-                      <p className="text-gray-700">{company.vision_statement}</p>
+                      <h3 className="font-medium text-gray-900 mb-2 text-sm md:text-base">Видение</h3>
+                      <p className="text-gray-700 text-sm md:text-base">{company.vision_statement}</p>
                     </div>
                   )}
                 </div>
 
                 {/* Ценности */}
                 {company.values && company.values.length > 0 && (
-                  <div className="bg-white rounded-lg shadow-sm p-6">
-                    <h2 className="text-xl font-semibold mb-4">Ценности</h2>
+                  <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
+                    <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">Ценности</h2>
                     <ul className="space-y-2">
                       {company.values.map((value, index) => (
-                        <li key={index} className="flex items-center">
-                          <span className="w-2 h-2 bg-blue-600 rounded-full mr-3"></span>
+                        <li key={index} className="flex items-center text-sm md:text-base">
+                          <span className="w-2 h-2 bg-blue-600 rounded-full mr-3 flex-shrink-0"></span>
                           {value}
                         </li>
                       ))}
@@ -967,13 +1040,13 @@ export default function CompanyPage() {
 
                 {/* Специализации */}
                 {company.specializations && company.specializations.length > 0 && (
-                  <div className="bg-white rounded-lg shadow-sm p-6">
-                    <h2 className="text-xl font-semibold mb-4">Специализации</h2>
+                  <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
+                    <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">Специализации</h2>
                     <div className="flex flex-wrap gap-2">
                       {company.specializations.map((spec, index) => (
                         <span
                           key={index}
-                          className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm"
+                          className="bg-indigo-100 text-indigo-800 px-2 md:px-3 py-1 rounded-full text-xs md:text-sm"
                         >
                           {spec}
                         </span>
@@ -984,21 +1057,21 @@ export default function CompanyPage() {
 
                 {/* Достижения */}
                 {achievements.length > 0 && (
-                  <div className="bg-white rounded-lg shadow-sm p-6">
-                    <h2 className="text-xl font-semibold mb-4">Достижения и награды</h2>
-                    <div className="space-y-4">
+                  <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
+                    <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">Достижения и награды</h2>
+                    <div className="space-y-3 md:space-y-4">
                       {achievements.map((achievement: any) => (
-                        <div key={achievement.id} className="flex items-start space-x-3">
-                          <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                        <div key={achievement.id} className="flex items-start space-x-2 md:space-x-3">
+                          <div className="w-10 h-10 md:w-12 md:h-12 bg-yellow-100 rounded-lg flex items-center justify-center flex-shrink-0">
                             🏆
                           </div>
-                          <div>
-                            <h3 className="font-medium">{achievement.title}</h3>
-                            <p className="text-gray-600">{achievement.description}</p>
-                            <div className="flex items-center text-sm text-gray-500 mt-1">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-medium text-sm md:text-base">{achievement.title}</h3>
+                            <p className="text-gray-600 text-sm md:text-base">{achievement.description}</p>
+                            <div className="flex flex-col sm:flex-row sm:items-center text-xs md:text-sm text-gray-500 mt-1 gap-1 sm:gap-0">
                               {achievement.issuer && <span>{achievement.issuer}</span>}
                               {achievement.date_received && (
-                                <span className="ml-2">
+                                <span className="sm:ml-2">
                                   {new Date(achievement.date_received).toLocaleDateString('ru-RU')}
                                 </span>
                               )}
@@ -1014,50 +1087,50 @@ export default function CompanyPage() {
           </div>
 
           {/* Боковая панель */}
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             {/* Контактная информация */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-semibold mb-4">Контакты</h3>
-              <div className="space-y-3">
+            <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
+              <h3 className="text-base md:text-lg font-semibold mb-3 md:mb-4">Контакты</h3>
+              <div className="space-y-2 md:space-y-3">
                 {company.address && (
                   <div className="flex items-start">
-                    <svg className="w-5 h-5 text-gray-400 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 md:w-5 md:h-5 text-gray-400 mt-0.5 mr-2 md:mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    <span className="text-gray-700">{company.address}</span>
+                    <span className="text-gray-700 text-sm md:text-base">{company.address}</span>
                   </div>
                 )}
                 {company.phone && (
                   <div className="flex items-center">
-                    <svg className="w-5 h-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 md:w-5 md:h-5 text-gray-400 mr-2 md:mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                     </svg>
-                    <a href={`tel:${company.phone}`} className="text-blue-600 hover:text-blue-800">
+                    <a href={`tel:${company.phone}`} className="text-blue-600 hover:text-blue-800 text-sm md:text-base">
                       {company.phone}
                     </a>
                   </div>
                 )}
                 {company.email && (
                   <div className="flex items-center">
-                    <svg className="w-5 h-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 md:w-5 md:h-5 text-gray-400 mr-2 md:mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    <a href={`mailto:${company.email}`} className="text-blue-600 hover:text-blue-800">
+                    <a href={`mailto:${company.email}`} className="text-blue-600 hover:text-blue-800 text-sm md:text-base break-all">
                       {company.email}
                     </a>
                   </div>
                 )}
                 {company.website && (
                   <div className="flex items-center">
-                    <svg className="w-5 h-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 md:w-5 md:h-5 text-gray-400 mr-2 md:mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9m0 9c-5 0-9-4-9-9s4-9 9-9" />
                     </svg>
                     <a
                       href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800"
+                      className="text-blue-600 hover:text-blue-800 text-sm md:text-base break-all"
                     >
                       {company.website}
                     </a>
@@ -1068,15 +1141,15 @@ export default function CompanyPage() {
 
             {/* Социальные сети */}
             {company.social_links && Object.values(company.social_links).some(link => link) && (
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-lg font-semibold mb-4">Социальные сети</h3>
+              <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
+                <h3 className="text-base md:text-lg font-semibold mb-3 md:mb-4">Социальные сети</h3>
                 <div className="space-y-2">
                   {company.social_links.linkedin && (
                     <a
                       href={company.social_links.linkedin}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center text-blue-600 hover:text-blue-800"
+                      className="flex items-center text-blue-600 hover:text-blue-800 text-sm md:text-base"
                     >
                       LinkedIn
                     </a>
@@ -1086,7 +1159,7 @@ export default function CompanyPage() {
                       href={company.social_links.facebook}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center text-blue-600 hover:text-blue-800"
+                      className="flex items-center text-blue-600 hover:text-blue-800 text-sm md:text-base"
                     >
                       Facebook
                     </a>
@@ -1096,7 +1169,7 @@ export default function CompanyPage() {
                       href={company.social_links.instagram}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center text-blue-600 hover:text-blue-800"
+                      className="flex items-center text-blue-600 hover:text-blue-800 text-sm md:text-base"
                     >
                       Instagram
                     </a>
@@ -1106,7 +1179,7 @@ export default function CompanyPage() {
                       href={company.social_links.youtube}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center text-blue-600 hover:text-blue-800"
+                      className="flex items-center text-blue-600 hover:text-blue-800 text-sm md:text-base"
                     >
                       YouTube
                     </a>
@@ -1116,15 +1189,15 @@ export default function CompanyPage() {
             )}
 
             {/* Статистика */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-semibold mb-4">Статистика</h3>
-              <div className="space-y-3">
+            <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
+              <h3 className="text-base md:text-lg font-semibold mb-3 md:mb-4">Статистика</h3>
+              <div className="space-y-2 md:space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Проектов в портфолио:</span>
-                  <span className="font-medium">{portfolio.length}</span>
+                  <span className="text-gray-600 text-sm md:text-base">Проектов в портфолио:</span>
+                  <span className="font-medium text-sm md:text-base">{portfolio.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Отзывы:</span>
+                  <span className="text-gray-600 text-sm md:text-base">Отзывы:</span>
                   <span className="font-medium">{company.reviews_count || 0}</span>
                 </div>
                 {company.founded_year && (
