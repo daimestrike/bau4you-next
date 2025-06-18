@@ -160,7 +160,7 @@ export default function CompanyPage() {
         }
         
         // Проверяем статус подписки
-        if (userResult.user) {
+        if (userResult.user && id) {
           try {
             const followResult = await isFollowingCompany(id as string)
             if (followResult.data !== undefined) {
