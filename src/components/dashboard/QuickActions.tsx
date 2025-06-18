@@ -73,22 +73,19 @@ export default function QuickActions({ actions, title, className = '' }: QuickAc
           
           const content = (
             <div className={`
-              group relative p-5 rounded-2xl transition-all duration-300
+              group relative p-5 rounded-2xl
               ${action.enabled 
-                ? `glass-card hover-glass border ${colors.border} hover:scale-105 cursor-pointer shadow-lg hover:shadow-xl`
+                ? `glass-card border ${colors.border} cursor-pointer shadow-lg`
                 : 'glass-card border border-gray-200/50 cursor-not-allowed opacity-60'
               }
             `}>
-              {/* Gradient background on hover */}
-              {action.enabled && (
-                <div className={`absolute inset-0 bg-gradient-to-br ${colors.bg} opacity-0 group-hover:opacity-10 rounded-2xl transition-opacity duration-300`}></div>
-              )}
+              {/* Gradient background removed */}
               
               <div className="relative z-10 flex items-start space-x-4">
                 <div className={`
-                  w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300
+                  w-12 h-12 rounded-xl flex items-center justify-center
                   ${action.enabled 
-                    ? `${colors.icon} group-hover:scale-110` 
+                    ? `${colors.icon}` 
                     : 'bg-gray-200/50 text-gray-400'
                   }
                 `}>
@@ -97,9 +94,9 @@ export default function QuickActions({ actions, title, className = '' }: QuickAc
                 
                 <div className="flex-1">
                   <h4 className={`
-                    font-semibold text-base mb-1 transition-colors duration-300
+                    font-semibold text-base mb-1
                     ${action.enabled 
-                      ? 'text-gray-900 group-hover:text-gray-800' 
+                      ? 'text-gray-900' 
                       : 'text-gray-500'
                     }
                   `}>
@@ -108,7 +105,7 @@ export default function QuickActions({ actions, title, className = '' }: QuickAc
                   <p className={`
                     text-sm leading-relaxed
                     ${action.enabled 
-                      ? 'text-gray-600 group-hover:text-gray-700' 
+                      ? 'text-gray-600' 
                       : 'text-gray-400'
                     }
                   `}>
@@ -117,7 +114,7 @@ export default function QuickActions({ actions, title, className = '' }: QuickAc
                 </div>
                 
                 {action.enabled && (
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <div className="opacity-50">
                     <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
@@ -125,10 +122,7 @@ export default function QuickActions({ actions, title, className = '' }: QuickAc
                 )}
               </div>
               
-              {/* Shine effect */}
-              {action.enabled && (
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out"></div>
-              )}
+              {/* Shine effect removed */}
             </div>
           )
           
@@ -165,4 +159,4 @@ export default function QuickActions({ actions, title, className = '' }: QuickAc
       </div>
     </div>
   )
-} 
+}

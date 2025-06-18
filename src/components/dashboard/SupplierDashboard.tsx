@@ -45,9 +45,7 @@ interface SupplierDashboardProps {
 }
 
 export default function SupplierDashboard({ user, profile, stats }: SupplierDashboardProps) {
-  // Отладочная информация
-  console.log('SupplierDashboard stats:', stats)
-  console.log('Cart stats:', stats.cartStats)
+  // Отладочная информация (отключена для production)
   
   // Подготовка данных для поставщика
   const availableProjects = stats.projects.length
@@ -61,14 +59,7 @@ export default function SupplierDashboard({ user, profile, stats }: SupplierDash
   const followedCompanies = stats.partnerships?.followedCompanies || 0
   const followers = stats.partnerships?.followers || 0
 
-  console.log('Calculated values:', {
-    totalInCarts,
-    uniqueCartUsers,
-    myProducts,
-    activeProducts,
-    followedCompanies,
-    followers
-  })
+  // Calculated values logging disabled
 
   // Быстрые действия для поставщика
   const quickActions = [
@@ -138,15 +129,7 @@ export default function SupplierDashboard({ user, profile, stats }: SupplierDash
 
   return (
     <div className="space-y-8">
-      {/* Приветствие */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-800 rounded-lg text-white p-6">
-        <h2 className="text-2xl font-bold mb-2">
-          Добро пожаловать, {profile?.name_first || 'Поставщик'}!
-        </h2>
-        <p className="opacity-90">
-          Развивайте продажи, участвуйте в проектах и расширяйте сеть партнеров
-        </p>
-      </div>
+
 
       {/* Метрики поставщика */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">

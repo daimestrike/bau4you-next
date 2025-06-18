@@ -43,20 +43,24 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadUserData()
-    
-    // Обновляем данные при фокусе на окне
+  }, []) // Убираем зависимости, чтобы избежать бесконечных перерендеров
+  
+  useEffect(() => {
+    // Обновляем данные при фокусе на окне только если пользователь загружен
     const handleFocus = () => {
       if (user && profile) {
         refreshPartnershipsData()
       }
     }
     
-    window.addEventListener('focus', handleFocus)
-    
-    return () => {
-      window.removeEventListener('focus', handleFocus)
+    if (user && profile) {
+      window.addEventListener('focus', handleFocus)
+      
+      return () => {
+        window.removeEventListener('focus', handleFocus)
+      }
     }
-  }, [user, profile])
+  }, [user?.id, profile?.id]) // Используем только ID для избежания лишних перерендеров
 
   const loadUserData = async () => {
     try {
@@ -203,7 +207,7 @@ export default function DashboardPage() {
             
             if (error && error.code === 'PGRST116') {
               // Таблица не существует
-              console.log('Applications table does not exist, skipping...')
+              // Applications table does not exist, skipping
               tenderApplicationsData = []
               tenderApplicationsError = null
             } else if (error) {
@@ -336,13 +340,13 @@ export default function DashboardPage() {
       
       if (userProfile?.role === 'supplier') {
         try {
-          console.log('Loading supplier cart stats...')
-          const { data: cartData, error: cartError } = await getSupplierCartStats()
-          console.log('Cart stats result:', { cartData, cartError })
+          // Loading supplier cart stats
+          const { data: cartData, error: cartError } = await getSupplierCartStats(userId)
+          // Cart stats loaded
           cartStats = cartData
           
-          const { data: ordersData, error: ordersError } = await getSupplierOrders()
-          console.log('Orders result:', { ordersData, ordersError })
+          const { data: ordersData, error: ordersError } = await getSupplierOrders(userId)
+          // Orders loaded
           supplierOrders = ordersData || []
         } catch (error) {
           console.error('Error loading supplier stats:', error)
@@ -408,7 +412,7 @@ export default function DashboardPage() {
           </p>
           <Link 
             href="/profile/edit" 
-            className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-purple-700 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
+            className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-medium shadow-lg"
           >
             Настроить профиль
           </Link>
@@ -503,7 +507,7 @@ export default function DashboardPage() {
                 <div className="flex items-center space-x-4">
                   <Link 
                     href="/profile" 
-                    className="inline-flex items-center px-4 py-2 glass-card hover-glass rounded-xl text-sm font-medium text-gray-700 transition-all duration-300 hover:scale-105"
+                    className="inline-flex items-center px-4 py-2 glass-card rounded-xl text-sm font-medium text-gray-700"
                   >
                     <User className="w-4 h-4 mr-2" />
                     Профиль
@@ -536,7 +540,7 @@ export default function DashboardPage() {
                   </div>
                   <Link 
                     href="/profile/edit" 
-                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl font-medium hover:from-yellow-600 hover:to-orange-600 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl font-medium shadow-lg"
                   >
                     Заполнить
                   </Link>

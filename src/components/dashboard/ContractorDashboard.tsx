@@ -87,15 +87,7 @@ export default function ContractorDashboard({ user, profile, stats }: Contractor
 
   return (
     <div className="space-y-8">
-      {/* Приветствие */}
-      <div className="bg-gradient-to-r from-green-600 to-green-800 rounded-lg text-white p-6">
-        <h2 className="text-2xl font-bold mb-2">
-          Добро пожаловать, {profile?.name_first || 'Подрядчик'}!
-        </h2>
-        <p className="opacity-90">
-          Находите проекты, участвуйте в тендерах и развивайте свой бизнес
-        </p>
-      </div>
+
 
       {/* Метрики подрядчика */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -341,4 +333,4 @@ export default function ContractorDashboard({ user, profile, stats }: Contractor
       </div>
     </div>
   )
-} 
+}

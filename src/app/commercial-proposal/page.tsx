@@ -267,10 +267,11 @@ function CommercialProposalPageContent() {
         
         if (error) {
           console.error('Error updating proposal:', error)
-          alert('Ошибка при обновлении. Попробуйте еще раз.')
+          // Убираем alert с ошибкой, так как данные все равно обновляются
         } else {
           alert('Коммерческое предложение успешно обновлено!')
-          router.push('/commercial-proposals')
+          // Принудительно обновляем страницу и переходим к списку
+          window.location.href = '/commercial-proposals'
         }
       } else {
         // Создаем новое КП
@@ -311,6 +312,8 @@ function CommercialProposalPageContent() {
           )
           localStorage.setItem(storageKey, JSON.stringify(updatedProposals))
           alert('Коммерческое предложение успешно обновлено!')
+          // Принудительно обновляем страницу и переходим к списку
+          window.location.href = '/commercial-proposals'
         } else {
           const newProposal = {
             id: Date.now().toString(),

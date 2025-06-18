@@ -129,7 +129,7 @@ export default function ClientDashboard({ user, profile, stats, onPartnershipsUp
     e.preventDefault()
     
     // Здесь будет логика отправки заявки избранным компаниям
-    console.log('Отправка быстрой заявки:', quickRequest)
+    // Отправка быстрой заявки
     
     // Закрываем модальное окно и очищаем форму
     setShowQuickRequestModal(false)
@@ -141,19 +141,7 @@ export default function ClientDashboard({ user, profile, stats, onPartnershipsUp
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Приветствие */}
-      <div className="relative overflow-hidden glass-card rounded-2xl p-8 border border-blue-200/30">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-600/20"></div>
-        <div className="relative z-10">
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-3">
-            Добро пожаловать, {getDisplayName()}!
-          </h2>
-          <p className="text-gray-600 text-lg">
-            Управляйте проектами, находите надежных подрядчиков и отслеживайте коммерческие предложения
-          </p>
-        </div>
-        <div className="absolute top-4 right-4 w-20 h-20 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-2xl"></div>
-      </div>
+
 
       {/* Метрики заказчика */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
