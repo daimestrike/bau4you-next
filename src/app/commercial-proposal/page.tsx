@@ -262,7 +262,7 @@ function CommercialProposalPageContent() {
         // Обновляем существующее КП
         const { error } = await updateCommercialProposal(editingProposalId, {
           title,
-          proposal_data: proposalData
+          proposalData: proposalData
         })
         
         if (error) {
@@ -277,7 +277,7 @@ function CommercialProposalPageContent() {
         const { error } = await createCommercialProposal({
           title,
           type: 'created',
-          proposal_data: proposalData
+          proposalData: proposalData
         })
         
         if (error) {
