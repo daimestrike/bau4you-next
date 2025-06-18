@@ -496,9 +496,10 @@ class SupabaseQueryBuilder {
         statusText: response.statusText
       }
     } catch (error) {
+      console.error('❌ Update error:', error)
       return {
         data: null,
-        error,
+        error: { message: error instanceof Error ? error.message : 'Proxy error', details: String(error) },
         status: 500,
         statusText: 'Internal Error'
       }
@@ -603,9 +604,10 @@ class SupabaseQueryBuilder {
         statusText: response.statusText
       }
     } catch (error) {
+      console.error('❌ Delete error:', error)
       return {
         data: null,
-        error,
+        error: { message: error instanceof Error ? error.message : 'Proxy error', details: String(error) },
         status: 500,
         statusText: 'Internal Error'
       }
@@ -693,9 +695,13 @@ class SupabaseQueryBuilder {
         statusText: response.statusText
       }
     } catch (error) {
+      console.error('❌ Update operation error:', error)
       return {
         data: null,
-        error,
+        error: {
+          message: error instanceof Error ? error.message : 'Update operation failed',
+          details: error instanceof Error ? error.stack : String(error)
+        },
         status: 500,
         statusText: 'Internal Error'
       }
@@ -716,9 +722,13 @@ class SupabaseQueryBuilder {
         statusText: response.statusText
       }
     } catch (error) {
+      console.error('❌ Delete operation error:', error)
       return {
         data: null,
-        error,
+        error: {
+          message: error instanceof Error ? error.message : 'Delete operation failed',
+          details: error instanceof Error ? error.stack : String(error)
+        },
         status: 500,
         statusText: 'Internal Error'
       }
@@ -753,7 +763,14 @@ class SupabaseStorageClient {
         error: response.ok ? null : data
       }
     } catch (error) {
-      return { data: null, error }
+      console.error('❌ Storage upload error:', error)
+      return { 
+        data: null, 
+        error: {
+          message: error instanceof Error ? error.message : 'Storage upload failed',
+          details: error instanceof Error ? error.stack : String(error)
+        }
+      }
     }
   }
 
@@ -771,7 +788,14 @@ class SupabaseStorageClient {
         return { data: null, error }
       }
     } catch (error) {
-      return { data: null, error }
+      console.error('❌ Storage download error:', error)
+      return { 
+        data: null, 
+        error: {
+          message: error instanceof Error ? error.message : 'Storage download failed',
+          details: error instanceof Error ? error.stack : String(error)
+        }
+      }
     }
   }
 

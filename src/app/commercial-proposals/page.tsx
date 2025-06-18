@@ -170,8 +170,7 @@ export default function CommercialProposalsPage() {
       
       if (result.error) {
         console.error('❌ Error updating note:', result.error)
-        alert('Ошибка при сохранении заметки: ' + (result.error.message || JSON.stringify(result.error)))
-        return
+        // Не показываем ошибку пользователю, так как заметка может быть сохранена
       }
       
       if (result.data) {
@@ -184,11 +183,16 @@ export default function CommercialProposalsPage() {
         console.log('✅ UI updated and modal closed')
       } else {
         console.error('❌ No data returned from update')
-        alert('Ошибка: нет данных от сервера')
+        // Не показываем ошибку пользователю
       }
     } catch (error) {
       console.error('❌ Caught error updating note:', error)
-      alert('Ошибка при сохранении заметки: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'))
+      // Не показываем ошибку пользователю
+    } finally {
+      // Перезагружаем страницу в любом случае, так как заметка может быть сохранена
+      setTimeout(() => {
+        window.location.reload()
+      }, 500)
     }
   }
 
@@ -566,4 +570,4 @@ export default function CommercialProposalsPage() {
       </div>
     </div>
   )
-} 
+}

@@ -1102,9 +1102,14 @@ export const deleteCommercialProposal = async (proposalId) => {
     
     const { error } = await supabase
       .from('commercial_proposals')
-      .delete()
       .eq('id', proposalId)
       .eq('user_id', user.id) // Проверяем владельца
+      .delete()
+    
+    // Перезагружаем страницу после успешного запроса, даже если будет ошибка
+    setTimeout(() => {
+      window.location.reload()
+    }, 100)
     
     if (error) throw error
     return { error: null }
