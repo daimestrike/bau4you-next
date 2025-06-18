@@ -94,26 +94,8 @@ export default function ProjectApplicationsManager({ userId }: ProjectApplicatio
         .from('project_applications')
         .select(`
           *,
-          projects(
-            id,
-            name,
-            description,
-            budget,
-            location,
-            deadline,
-            category,
-            owner_id
-          ),
-          companies(
-            id,
-            name,
-            type,
-            description,
-            logo_url,
-            website,
-            phone,
-            email
-          )
+          projects(*),
+          companies(*)
         `)
         .in('project_id', projectIds)
         .order('created_at', { ascending: false })
@@ -129,17 +111,11 @@ export default function ProjectApplicationsManager({ userId }: ProjectApplicatio
         return
       }
 
-      console.log('Raw applications data:', data)
-      console.log('Applications count:', data?.length || 0)
+      console.log('Applications loaded:', data?.length || 0)
       if (data && data.length > 0) {
-        console.log('First application structure:', {
-          id: data[0].id,
-          project_id: data[0].project_id,
-          company_id: data[0].company_id,
-          projects: data[0].projects,
-          companies: data[0].companies,
-          hasProjects: !!data[0].projects,
-          hasCompanies: !!data[0].companies
+        console.log('Sample application:', {
+          project_name: data[0].projects?.name,
+          company_name: data[0].companies?.name
         })
       }
 
