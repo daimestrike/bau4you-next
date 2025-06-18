@@ -51,36 +51,57 @@ export default function FavoritesPage() {
 
         // Получаем избранные компании пользователя
         console.log('📊 Fetching company_followers for user:', user.id)
+        
+        // Сначала получаем ID компаний, на которые подписан пользователь
         const { data: followersData, error: followersError } = await supabase
           .from('company_followers')
-          .select(`
-            company_id,
-            companies (
-              id,
-              name,
-              description,
-              type,
-              industry,
-              city,
-              email,
-              website,
-              logo_url,
-              verified,
-              created_at
-            )
-          `)
+          .select('company_id')
           .eq('user_id', user.id)
-
-        console.log('📊 Followers data:', followersData)
+        
+        console.log('📊 Followers data (company IDs):', followersData)
         console.log('❌ Followers error:', followersError)
-
+        
         if (followersError) {
           throw followersError
         }
+        
+        if (!followersData || followersData.length === 0) {
+          console.log('📊 No followed companies found')
+          setFavoriteCompanies([])
+          return
+        }
+        
+        // Получаем данные компаний по их ID
+        const companyIds = followersData.map(item => item.company_id)
+        console.log('📊 Company IDs to fetch:', companyIds)
+        
+        const { data: companiesData, error: companiesError } = await supabase
+          .from('companies')
+          .select(`
+            id,
+            name,
+            description,
+            type,
+            industry,
+            city,
+            email,
+            website,
+            logo_url,
+            verified,
+            created_at
+          `)
+          .in('id', companyIds)
 
-        const companies = followersData?.map(item => item.companies).filter(Boolean) || []
-        console.log('🏢 Mapped companies:', companies)
-        setFavoriteCompanies(companies as any[])
+        console.log('📊 Companies data:', companiesData)
+        console.log('❌ Companies error:', companiesError)
+        
+        if (companiesError) {
+          throw companiesError
+        }
+
+        console.log('🏢 Final companies:', companiesData)
+        console.log('🏢 Companies count:', companiesData?.length || 0)
+        setFavoriteCompanies(companiesData || [])
       } catch (err: unknown) {
         const error = err as Error
         setError(error.message || 'Ошибка при загрузке избранных компаний')

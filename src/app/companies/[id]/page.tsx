@@ -189,6 +189,11 @@ export default function CompanyPage() {
   }, [id])
 
   const handleFollow = async () => {
+    if (!id) {
+      console.error('Company ID is required')
+      return
+    }
+    
     try {
       if (isFollowing) {
         const result = await unfollowCompany(id as string)
