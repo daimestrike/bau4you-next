@@ -341,11 +341,11 @@ export default function DashboardPage() {
       if (userProfile?.role === 'supplier') {
         try {
           // Loading supplier cart stats
-          const { data: cartData, error: cartError } = await getSupplierCartStats(userId)
+          const { data: cartData, error: cartError } = await getSupplierCartStats()
           // Cart stats loaded
           cartStats = cartData
           
-          const { data: ordersData, error: ordersError } = await getSupplierOrders(userId)
+          const { data: ordersData, error: ordersError } = await getSupplierOrders()
           // Orders loaded
           supplierOrders = ordersData || []
         } catch (error) {
