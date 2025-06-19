@@ -1,0 +1,1 @@
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS region_id UUID REFERENCES regions(id);
