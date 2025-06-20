@@ -16,253 +16,332 @@ export default function TestDiPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-blue-50 to-indigo-100 py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-              Главное
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-600 max-w-4xl mx-auto leading-relaxed">
-              Маркетплейс, тендерая площадка, организации.
-              <br />
-              Это лишь часть экосистемы Bau4You
-            </p>
-          </div>
+    <>
+      {/* Custom Styles */}
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Futura:wght@300;400;500;600;700&display=swap');
+        
+        * {
+          font-family: 'Futura', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+        
+        .animate-delay-200 { animation-delay: 0.2s; }
+        .animate-delay-400 { animation-delay: 0.4s; }
+        .animate-delay-600 { animation-delay: 0.6s; }
+        .animate-delay-800 { animation-delay: 0.8s; }
+        .animate-delay-1000 { animation-delay: 1.0s; }
+        .animate-delay-1200 { animation-delay: 1.2s; }
+        
+        .gradient-border {
+          background: linear-gradient(white, white) padding-box,
+                      linear-gradient(135deg, #4262ff, #4262ff) border-box;
+          border: 2px solid transparent;
+        }
+        
+        .glass-effect {
+          backdrop-filter: blur(20px);
+          background: rgba(255, 255, 255, 0.95);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+        }
 
-          {/* Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* BAU.Маркет Card */}
-            <div className="rounded-3xl overflow-hidden shadow-2xl relative bg-gradient-to-br from-blue-600 to-blue-800">
-              {/* Full Image Section */}
-              <div className="h-64 relative overflow-hidden">
-                <Image 
-                  src="https://s3.twcstorage.ru/5e559db6-b49dc67b-2ab0-4413-9567-c6e34e6a5bd4/uploads/t1.png"
-                  alt="BAU.Маркет"
-                  fill
-                  className="object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
-              </div>
-              
-              {/* Content Block - positioned under image */}
-              <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 relative">
-                <div className="absolute inset-0 bg-white/5 backdrop-blur-sm"></div>
-                <div className="relative z-10">
-                  <h3 className="text-xl font-bold text-white mb-3">BAU.Маркет</h3>
-                  <p className="text-blue-100 text-sm mb-2">
-                    Строительный маркетплейс для всех и каждого.
-                  </p>
-                  <p className="text-blue-100 text-sm mb-4">
-                    Размещайте товар и продвигайте свой профиль.
-                  </p>
-                  <Link href="/products" className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-semibold hover:bg-white/30 transition-all duration-300 border border-white/30 shadow-lg inline-block">
-                    Перейти
-                  </Link>
-                </div>
-                
-                {/* Decorative elements */}
-                <div className="absolute top-4 right-4 w-12 h-12 bg-white/10 rounded-full backdrop-blur-sm"></div>
-                <div className="absolute bottom-4 left-4 w-6 h-6 bg-white/10 rounded-full backdrop-blur-sm"></div>
-              </div>
-            </div>
+        @keyframes fadeIn {
+          0% { opacity: 0; transform: translateY(20px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideUp {
+          0% { opacity: 0; transform: translateY(40px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideLeft {
+          0% { opacity: 0; transform: translateX(40px); }
+          100% { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes scaleIn {
+          0% { opacity: 0; transform: scale(0.9); }
+          100% { opacity: 1; transform: scale(1); }
+        }
 
-            {/* BAU.Тендеры Card */}
-            <div className="rounded-3xl overflow-hidden shadow-2xl relative bg-gradient-to-br from-green-600 to-green-800">
-              {/* Full Image Section */}
-              <div className="h-64 relative overflow-hidden">
-                <Image 
-                  src="https://s3.twcstorage.ru/5e559db6-b49dc67b-2ab0-4413-9567-c6e34e6a5bd4/uploads/t2.png"
-                  alt="BAU.Тендеры"
-                  fill
-                  className="object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
-              </div>
-              
-              {/* Content Block - positioned under image */}
-              <div className="bg-gradient-to-br from-green-600 to-green-800 p-6 relative rounded-b-3xl">
-                <div className="absolute inset-0 bg-white/5 backdrop-blur-sm"></div>
-                <div className="relative z-10">
-                  <h3 className="text-xl font-bold text-white mb-3">BAU.Тендеры</h3>
-                  <p className="text-green-100 text-sm mb-2">
-                    Более 60 проектов на платформе. Свободная площадка для каждого.
-                  </p>
-                  <p className="text-green-100 text-sm mb-4">
-                    Найдите проект или создайте свой.
-                  </p>
-                  <Link href="/tenders" className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-semibold hover:bg-white/30 transition-all duration-300 border border-white/30 shadow-lg inline-block">
-                    Перейти
-                  </Link>
-                </div>
-                
-                {/* Decorative elements */}
-                <div className="absolute top-4 right-4 w-12 h-12 bg-white/10 rounded-full backdrop-blur-sm"></div>
-                <div className="absolute bottom-4 left-4 w-6 h-6 bg-white/10 rounded-full backdrop-blur-sm"></div>
-              </div>
-            </div>
+        .animate-fade-in {
+          animation: fadeIn 0.8s ease-out forwards;
+        }
+        .animate-slide-up {
+          animation: slideUp 0.8s ease-out forwards;
+        }
+        .animate-slide-left {
+          animation: slideLeft 0.8s ease-out forwards;
+        }
+        .animate-scale-in {
+          animation: scaleIn 0.6s ease-out forwards;
+        }
+      `}</style>
 
-            {/* Bau.Компании Card */}
-            <div className="rounded-3xl overflow-hidden shadow-2xl relative bg-gradient-to-br from-purple-600 to-purple-800">
-              {/* Full Image Section */}
-              <div className="h-64 relative overflow-hidden">
-                <img 
-                  src="https://s3.twcstorage.ru/5e559db6-b49dc67b-2ab0-4413-9567-c6e34e6a5bd4/uploads/t3.png"
-                  alt="Bau.Компании"
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+      <div className="bg-white text-gray-900 antialiased overflow-x-hidden">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-24">
+          {/* Header Section */}
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between mb-16 opacity-0 animate-fade-in">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium mb-6" style={{backgroundColor: '#4262ff20', color: '#4262ff'}}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                  <path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/>
+                  <circle cx="12" cy="8" r="6"/>
+                </svg>
+                Лидер строительного рынка
               </div>
-              
-              {/* Content Block - positioned under image */}
-              <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-6 relative rounded-b-3xl">
-                <div className="absolute inset-0 bg-white/5 backdrop-blur-sm"></div>
-                <div className="relative z-10">
-                  <h3 className="text-xl font-bold text-white mb-3">Bau.Компании</h3>
-                  <p className="text-purple-100 text-sm mb-2">
-                    Более 170 компаний на платформе. Свободная площадка для каждого.
-                  </p>
-                  <p className="text-purple-100 text-sm mb-4">
-                    Найдите партнера или создайте свой профиль.
-                  </p>
-                  <Link href="/companies" className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-semibold hover:bg-white/30 transition-all duration-300 border border-white/30 shadow-lg inline-block">
-                    Перейти
-                  </Link>
-                </div>
-                
-                {/* Decorative elements */}
-                <div className="absolute top-4 right-4 w-12 h-12 bg-white/10 rounded-full backdrop-blur-sm"></div>
-                <div className="absolute bottom-4 left-4 w-6 h-6 bg-white/10 rounded-full backdrop-blur-sm"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* BAU.Тендеры Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col lg:flex-row items-center gap-12">
-            <div className="lg:w-1/2">
-              <h2 className="text-4xl md:text-5xl font-bold text-green-600 mb-6">
-                BAU.Тендеры
-              </h2>
-              <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-                100+ проектов актуальных проектов.
-                <br />
-                Нажмите, чтобы просмотреть больше.
+              <h1 className="sm:text-5xl lg:text-6xl xl:text-7xl leading-[0.9] text-4xl font-medium tracking-tight">
+                Стройте будущее<br/>
+                <span className="font-light italic text-gray-600">с Bau4You</span>
+              </h1>
+              <p className="text-lg text-gray-600 mt-6 leading-relaxed">
+                Единая экосистема для строительства: маркетплейс, тендерная площадка и каталог компаний. 
+                Всё что нужно для успешного строительного бизнеса.
               </p>
-              <div className="w-20 h-2 bg-gradient-to-r from-green-500 to-blue-500 rounded-full mb-8"></div>
             </div>
+
+
+          </div>
+
+                    {/* Bento Grid Layout - Fixed Overlapping */}
+          <section className="space-y-8 lg:space-y-12">
+            {/* Row 1 - Hero Section */}
+            <div className="grid grid-cols-2 lg:grid-cols-8 gap-4 lg:gap-6">
+              {/* Main Hero Card - Large */}
+              <div className="col-span-2 lg:col-span-5 opacity-0 animate-scale-in animate-delay-400">
+                <div className="relative rounded-3xl overflow-hidden shadow-2xl group h-[400px] lg:h-[500px]">
+                  <img 
+                    src="https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=1080&q=80" 
+                    alt="Современная стройка" 
+                    className="w-full h-full transition-transform duration-700 group-hover:scale-105 object-cover"
+                  />
+                  
+                  {/* Floating Card */}
+                  <div className="absolute bottom-6 left-6 right-6 lg:right-auto lg:max-w-sm">
+                    <div className="glass-effect p-5 lg:p-6 rounded-2xl shadow-xl">
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{backgroundColor: '#4262ff20'}}>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6" style={{color: '#4262ff'}}>
+                            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H5"/>
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-medium leading-tight">
+                            Проверенные
+                            <span className="italic font-light" style={{color: '#4262ff'}}> Проекты</span>
+                          </h3>
+                          <p className="text-sm text-gray-600 mt-2 leading-relaxed">
+                            95% проектов завершаются в срок с нашими подрядчиками.
+                          </p>
+                          <div className="flex items-center gap-6 mt-4">
+                            <div className="text-center">
+                              <div className="font-semibold text-lg" style={{color: '#4262ff'}}>250+</div>
+                              <div className="text-xs text-gray-500">Проектов</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="font-semibold text-lg" style={{color: '#4262ff'}}>98%</div>
+                              <div className="text-xs text-gray-500">В срок</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* BAU.Тендеры Card */}
+              <div className="col-span-2 lg:col-span-3 opacity-0 animate-slide-up animate-delay-600">
+                <div className="rounded-3xl text-white p-6 lg:p-8 relative overflow-hidden shadow-2xl group h-[400px] lg:h-[500px] flex flex-col" style={{background: `linear-gradient(135deg, #4262ff, #4262ff)`}}>
+                  {/* Background Pattern */}
+                  <div className="absolute inset-0 opacity-10">
+                    <div className="absolute top-4 right-4 w-24 h-24 rounded-full bg-white/10"></div>
+                    <div className="absolute bottom-4 left-4 w-16 h-16 rounded-full bg-white/5"></div>
+                  </div>
+                  
+                  <div className="relative z-10 flex flex-col justify-between h-full">
+                    <div>
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-white">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14,2 14,8 20,8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10,9 9,9 8,9"/>
+                          </svg>
+                        </div>
+                        <div className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium backdrop-blur">
+                          Тендерная площадка
+                        </div>
+                      </div>
+                      
+                      <h3 className="text-2xl lg:text-3xl font-medium leading-tight mb-6">
+                        BAU.Тендеры
+                      </h3>
+                      
+                      <div className="space-y-4 text-sm lg:text-base">
+                        <p className="text-white/80 leading-relaxed">
+                          Более 60 проектов на платформе. Свободная площадка для каждого.
+                        </p>
+                        <p className="text-white/80 leading-relaxed">
+                          Найдите проект или создайте свой.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between mt-6">
+                      <div className="text-sm text-white/70">
+                        60+ активных проектов
+                      </div>
+                      <Link href="/tenders" className="bg-white/20 hover:bg-white/30 backdrop-blur px-4 py-3 rounded-full text-sm font-medium transition-colors">
+                        Перейти
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Row 2 - Feature Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-8 gap-4 lg:gap-6">
+              
+              {/* Bau.Компании Card */}
+              <div className="col-span-2 lg:col-span-3 opacity-0 animate-slide-up animate-delay-800">
+                <div className="rounded-3xl text-white p-6 lg:p-8 shadow-lg hover:shadow-xl transition-shadow duration-300 group h-[350px] flex flex-col justify-between" style={{background: `linear-gradient(135deg, #4262ff, #4262ff)`}}>
+                  <div>
+                    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 backdrop-blur">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-white">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="m22 21-3-3"/>
+                        <circle cx="16" cy="14" r="5"/>
+                        <path d="M19 11v6"/>
+                        <path d="M16 14h6"/>
+                      </svg>
+                    </div>
+                    <h3 className="text-xl lg:text-2xl font-medium leading-tight mb-4">
+                      Bau.Компании
+                    </h3>
+                    <div className="space-y-3 text-sm lg:text-base">
+                      <p className="text-white/80 leading-relaxed">
+                        Более 170 компаний на платформе. Свободная площадка для каждого.
+                      </p>
+                      <p className="text-white/80 leading-relaxed">
+                        Найдите партнера или создайте свой профиль.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-6">
+                    <div className="text-sm text-white/70">
+                      170+ проверенных компаний
+                    </div>
+                    <Link href="/companies" className="bg-white/20 hover:bg-white/30 backdrop-blur px-4 py-3 rounded-full text-sm font-medium transition-colors">
+                      Перейти
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+              {/* BAU.Маркет Card */}
+              <div className="col-span-2 lg:col-span-2 opacity-0 animate-scale-in animate-delay-1000">
+                <div className="rounded-3xl text-white p-6 lg:p-8 shadow-lg hover:shadow-xl transition-shadow duration-300 group h-[350px] flex flex-col justify-between" style={{background: `linear-gradient(135deg, #4262ff, #4262ff)`}}>
+                  <div>
+                    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 backdrop-blur">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-white">
+                        <path d="m7 7 10 10-5 5-10-10V2h5l5 5Z"/>
+                        <path d="M13 5 9 1 5 5"/>
+                        <path d="m15 16 5 5"/>
+                        <circle cx="18" cy="18" r="3"/>
+                      </svg>
+                    </div>
+                    <h3 className="text-lg lg:text-xl font-medium leading-tight mb-4">
+                      BAU.Маркет
+                    </h3>
+                    <div className="space-y-3 text-sm">
+                      <p className="text-white/80 leading-relaxed">
+                        Строительный маркетплейс для всех и каждого.
+                      </p>
+                      <p className="text-white/80 leading-relaxed">
+                        Размещайте товар и продвигайте свой профиль.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-6">
+                    <div className="text-sm text-white/70">
+                      Тысячи товаров
+                    </div>
+                    <Link href="/products" className="bg-white/20 hover:bg-white/30 backdrop-blur px-4 py-3 rounded-full text-sm font-medium transition-colors">
+                      Перейти
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+              {/* Platform Overview Card */}
+              <div className="col-span-2 lg:col-span-3 opacity-0 animate-slide-left animate-delay-1200">
+                <div className="relative rounded-3xl overflow-hidden shadow-xl group h-[350px]">
+                  <img 
+                    src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1080&q=80" 
+                    alt="Строительная платформа" 
+                    className="w-full h-full transition-transform duration-700 group-hover:scale-105 object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                  
+                  {/* Content */}
+                  <div className="absolute bottom-6 left-6 right-6 text-white">
+                    <h3 className="text-xl lg:text-2xl font-medium mb-3">
+                      Единая экосистема
+                    </h3>
+                    <p className="text-sm lg:text-base text-white/90 mb-4">
+                      Все инструменты строительного бизнеса в одном месте: проекты, партнеры, материалы
+                    </p>
+                    <Link href="/about" className="bg-white/20 hover:bg-white/30 backdrop-blur px-4 py-3 rounded-full text-sm font-medium transition-colors inline-block">
+                      Узнать больше
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+
+        </main>
+      </div>
+
+      {/* JavaScript for animations */}
+      <script dangerouslySetInnerHTML={{
+        __html: `
+          // Intersection Observer for animations
+          const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+          };
+          
+          const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+              if (entry.isIntersecting) {
+                entry.target.style.animationPlayState = 'running';
+              }
+            });
+          }, observerOptions);
+          
+          // Observe all animated elements
+          document.querySelectorAll('[class*="animate-"]').forEach(el => {
+            el.style.animationPlayState = 'paused';
+            observer.observe(el);
+          });
+          
+          // Smooth hover effects
+          document.querySelectorAll('.group').forEach(element => {
+            element.addEventListener('mouseenter', () => {
+              element.style.transform = 'translateY(-2px)';
+            });
             
-            <div className="lg:w-1/2">
-              {/* Project Card */}
-              <div className="bg-white rounded-3xl p-8 shadow-xl border border-gray-100">
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                  Строительство завода для производства эпоксидных смол
-                </h3>
-                
-                <div className="space-y-3 mb-6">
-                  <div className="flex flex-wrap gap-2">
-                    <span className="text-sm font-medium text-gray-600">Назначение проекта:</span>
-                    <span className="text-sm font-semibold text-gray-800">Промышленные</span>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2">
-                    <span className="text-sm font-medium text-gray-600">Адрес:</span>
-                    <span className="text-sm text-gray-800">Свердловская область, Первоуральск.</span>
-                  </div>
-                  
-                  <div className="text-sm text-gray-600">
-                    Дата создания: 04.04.2025
-                  </div>
-                </div>
-                
-                {/* Project Image Placeholder */}
-                <div className="w-full h-48 bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl mb-6 flex items-center justify-center">
-                  <svg className="w-16 h-16 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                
-                <button className="bg-green-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-green-700 transition-colors w-full">
-                  Перейти
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Additional Projects Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Project Card 1 */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-              <div className="w-full h-40 bg-gradient-to-br from-blue-200 to-blue-300 rounded-xl mb-4 flex items-center justify-center">
-                <svg className="w-12 h-12 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z" />
-                </svg>
-              </div>
-              <h4 className="text-lg font-bold text-gray-900 mb-2">Реконструкция офисного здания</h4>
-              <p className="text-sm text-gray-600 mb-4">Москва, Центральный район</p>
-              <button className="text-green-600 font-semibold hover:text-green-700 transition-colors">
-                Подробнее →
-              </button>
-            </div>
-
-            {/* Project Card 2 */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-              <div className="w-full h-40 bg-gradient-to-br from-purple-200 to-purple-300 rounded-xl mb-4 flex items-center justify-center">
-                <svg className="w-12 h-12 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 2v8h12V6H4z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <h4 className="text-lg font-bold text-gray-900 mb-2">Строительство жилого комплекса</h4>
-              <p className="text-sm text-gray-600 mb-4">Санкт-Петербург, Приморский район</p>
-              <button className="text-green-600 font-semibold hover:text-green-700 transition-colors">
-                Подробнее →
-              </button>
-            </div>
-
-            {/* Project Card 3 */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-              <div className="w-full h-40 bg-gradient-to-br from-orange-200 to-orange-300 rounded-xl mb-4 flex items-center justify-center">
-                <svg className="w-12 h-12 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
-                </svg>
-              </div>
-              <h4 className="text-lg font-bold text-gray-900 mb-2">Модернизация производства</h4>
-              <p className="text-sm text-gray-600 mb-4">Екатеринбург, Промышленный район</p>
-              <button className="text-green-600 font-semibold hover:text-green-700 transition-colors">
-                Подробнее →
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-br from-green-600 to-blue-600">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            Готовы начать свой проект?
-          </h2>
-          <p className="text-xl text-green-100 mb-8">
-            Присоединяйтесь к экосистеме Bau4You и найдите идеальных партнеров для вашего бизнеса
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/register" className="bg-white text-green-600 px-8 py-4 rounded-xl font-semibold hover:bg-green-50 transition-colors">
-              Зарегистрироваться
-            </Link>
-            <Link href="/projects" className="border-2 border-white text-white px-8 py-4 rounded-xl font-semibold hover:bg-white hover:text-green-600 transition-colors">
-              Просмотреть проекты
-            </Link>
-          </div>
-        </div>
-      </section>
-    </div>
+            element.addEventListener('mouseleave', () => {
+              element.style.transform = 'translateY(0)';
+            });
+          });
+        `
+      }} />
+    </>
   )
 }
