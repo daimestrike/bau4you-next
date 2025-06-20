@@ -113,7 +113,8 @@ export default function LoginPage() {
         // Raycaster
         const raycaster = new THREE.Raycaster()
         const mouse = new THREE.Vector2()
-        let hoveredCube: any = null, isPaused = false
+        let hoveredCube: any = null
+        const isPaused = false
 
         // Responsive resize for canvas
         function resizeCanvas() {
@@ -141,8 +142,8 @@ export default function LoginPage() {
 
           if (hoveredCube && (!intersects.length || intersects[0].object !== hoveredCube)) {
             if (!hoveredCube.userData.isSelected) {
-              hoveredCube.material.opacity = 0.82
-              hoveredCube.material.emissive.setHex(0x000000)
+              (hoveredCube as any).material.opacity = 0.82;
+              (hoveredCube as any).material.emissive.setHex(0x000000)
             }
             hoveredCube = null
           }
@@ -151,8 +152,8 @@ export default function LoginPage() {
             if (cube !== hoveredCube) {
               hoveredCube = cube
               if (!cube.userData.isSelected) {
-                cube.material.opacity = 1
-                cube.material.emissive.setHex(0x111111)
+                (cube as any).material.opacity = 1;
+                (cube as any).material.emissive.setHex(0x111111)
               }
             }
           }
@@ -166,14 +167,14 @@ export default function LoginPage() {
             cube.userData.isSelected = !cube.userData.isSelected
             if (cube.userData.isSelected) {
               cube.userData.targetScale = 1.47
-              cube.userData.rotationSpeed = 0.07
-              cube.material.color.setHex(0x4262ff)
-              cube.material.opacity = 1
+              cube.userData.rotationSpeed = 0.07;
+              (cube as any).material.color.setHex(0x4262ff);
+              (cube as any).material.opacity = 1
             } else {
               cube.userData.targetScale = 1
-              cube.userData.rotationSpeed = 0.012
-              cube.material.color.copy(cube.userData.initialColor)
-              cube.material.opacity = 0.82
+              cube.userData.rotationSpeed = 0.012;
+              (cube as any).material.color.copy((cube as any).userData.initialColor);
+              (cube as any).material.opacity = 0.82
             }
           }
         })

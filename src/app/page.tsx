@@ -268,8 +268,8 @@ export default function Home() {
         const handleMouseMove = (e: MouseEvent) => {
           const now = performance.now();
           const dt = now - lastTime || 16;
-          let dx = e.pageX - lastX;
-          let dy = e.pageY - lastY;
+          const dx = e.pageX - lastX;
+          const dy = e.pageY - lastY;
           let vx = dx / dt * 1000;
           let vy = dy / dt * 1000;
           let speed = Math.hypot(vx, vy);
