@@ -29,6 +29,7 @@ export default function Home() {
   const [latestProjects, setLatestProjects] = useState<any[]>([]);
   const [latestCompanies, setLatestCompanies] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [activeRole, setActiveRole] = useState('contractor');
   const router = useRouter();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -1666,20 +1667,20 @@ export default function Home() {
 
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-6" suppressHydrationWarning={true}>
-                <div suppressHydrationWarning={true}>
+              <div suppressHydrationWarning={true}>
                   <h3 className="text-xl sm:text-2xl font-medium text-gray-900 mb-1">
                     <span className="text-orange-500">
-                      Bau.Компании
-                    </span>
-                  </h3>
+                    Bau.Компании
+                  </span>
+                </h3>
                   <p className="text-sm sm:text-base text-gray-600">Надежные партнеры и подрядчики для ваших проектов</p>
-                </div>
-                <Link href="/companies" className="bg-white/80 backdrop-blur-md hover:bg-orange-500 hover:text-white px-3 sm:px-4 py-2 rounded-lg font-medium text-sm text-orange-500 border border-orange-200 shadow-lg transition-all duration-300 hover:scale-105">
-                  Смотреть все
-                </Link>
               </div>
-              
-              {loadingData ? (
+                <Link href="/companies" className="bg-white/80 backdrop-blur-md hover:bg-orange-500 hover:text-white px-3 sm:px-4 py-2 rounded-lg font-medium text-sm text-orange-500 border border-orange-200 shadow-lg transition-all duration-300 hover:scale-105">
+                Смотреть все
+              </Link>
+            </div>
+            
+            {loadingData ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" suppressHydrationWarning={true}>
                   {/* Main Loading Card */}
                   <div className="sm:col-span-2 lg:row-span-2 bg-white/80 backdrop-blur-md rounded-xl p-4 border border-orange-200/50 shadow-lg animate-pulse" suppressHydrationWarning={true}>
@@ -1701,20 +1702,20 @@ export default function Home() {
                   </div>
                   
                   {/* Small Loading Cards */}
-                  {[1, 2, 3].map((index) => (
+                {[1, 2, 3].map((index) => (
                     <div key={index} className="bg-white/80 backdrop-blur-md rounded-xl p-3 border border-orange-200/50 shadow-lg animate-pulse" suppressHydrationWarning={true}>
                       <div className="flex items-center gap-2 mb-2" suppressHydrationWarning={true}>
                         <div className="w-8 h-8 bg-gray-300 rounded-lg" suppressHydrationWarning={true}></div>
-                        <div className="flex-1" suppressHydrationWarning={true}>
+                      <div className="flex-1" suppressHydrationWarning={true}>
                           <div className="h-3 bg-gray-300 rounded mb-1" suppressHydrationWarning={true}></div>
                           <div className="h-2 bg-gray-300 rounded w-12" suppressHydrationWarning={true}></div>
-                        </div>
                       </div>
-                      <div className="h-2 bg-gray-300 rounded w-16" suppressHydrationWarning={true}></div>
                     </div>
-                  ))}
-                </div>
-              ) : (
+                      <div className="h-2 bg-gray-300 rounded w-16" suppressHydrationWarning={true}></div>
+                  </div>
+                ))}
+              </div>
+            ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" suppressHydrationWarning={true}>
                   {/* Main Featured Company */}
                   {latestCompanies.slice(0, 1).map((company) => (
@@ -1731,22 +1732,22 @@ export default function Home() {
                         
                         <div className="flex items-center gap-3 mb-3" suppressHydrationWarning={true}>
                           <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center text-white font-bold text-lg" suppressHydrationWarning={true}>
-                            {company.logo ? (
+                        {company.logo ? (
                               <img src={`/api/image-proxy?url=${encodeURIComponent(company.logo)}`} alt={company.name} className="w-12 h-12 object-cover rounded-lg" />
-                            ) : (
-                              company.name.charAt(0)
-                            )}
-                          </div>
+                        ) : (
+                          company.name.charAt(0)
+                        )}
+                      </div>
                           <div className="flex-1" suppressHydrationWarning={true}>
                             <h4 className="font-bold text-gray-900 text-base mb-1 line-clamp-1">{company.name}</h4>
-                            <div className="flex items-center gap-2" suppressHydrationWarning={true}>
+                        <div className="flex items-center gap-2" suppressHydrationWarning={true}>
                               <span className="text-yellow-500 text-sm">★</span>
                               <span className="text-xs text-gray-600">{company.rating || '5.0'}</span>
                               <span className="text-gray-400">•</span>
                               <span className="text-xs text-gray-600">{company.regions?.name || 'Россия'}</span>
-                            </div>
-                          </div>
                         </div>
+                      </div>
+                    </div>
                         
                         <p className="text-xs text-gray-600 mb-3 line-clamp-2" suppressHydrationWarning={true}>
                           {company.description || company.specialization || 'Профессиональная строительная компания с многолетним опытом работы'}
@@ -1761,8 +1762,8 @@ export default function Home() {
                           </span>
                         </div>
                       </div>
-                    </Link>
-                  ))}
+                  </Link>
+                ))}
                   
                   {/* Small Company Cards */}
                   {latestCompanies.slice(1, 4).map((company) => (
@@ -1796,14 +1797,14 @@ export default function Home() {
                     <p className="text-xs text-gray-600">170+ партнеров</p>
                   </Link>
                   
-                  {latestCompanies.length === 0 && (
+                {latestCompanies.length === 0 && (
                     <div className="col-span-full text-center py-6" suppressHydrationWarning={true}>
                       <div className="text-2xl mb-2">...</div>
                       <p className="text-sm text-gray-600">Загружаем компании</p>
-                    </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
+            )}
             </div>
           </div>
 
@@ -1820,20 +1821,20 @@ export default function Home() {
 
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-6" suppressHydrationWarning={true}>
-                <div suppressHydrationWarning={true}>
+              <div suppressHydrationWarning={true}>
                   <h3 className="text-xl sm:text-2xl font-medium text-gray-900 mb-1">
                     <span className="text-emerald-500">
-                      Bau.Маркет
-                    </span>
-                  </h3>
+                    Bau.Маркет
+                  </span>
+                </h3>
                   <p className="text-sm sm:text-base text-gray-600">Качественные строительные материалы от проверенных поставщиков</p>
-                </div>
-                <Link href="/products" className="bg-white/80 backdrop-blur-md hover:bg-emerald-500 hover:text-white px-3 sm:px-4 py-2 rounded-lg font-medium text-sm text-emerald-500 border border-emerald-200 shadow-lg transition-all duration-300 hover:scale-105">
-                  Смотреть все
-                </Link>
               </div>
-              
-              {loadingData ? (
+                <Link href="/products" className="bg-white/80 backdrop-blur-md hover:bg-emerald-500 hover:text-white px-3 sm:px-4 py-2 rounded-lg font-medium text-sm text-emerald-500 border border-emerald-200 shadow-lg transition-all duration-300 hover:scale-105">
+                Смотреть все
+              </Link>
+            </div>
+            
+            {loadingData ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" suppressHydrationWarning={true}>
                   {/* Main Loading Card */}
                   <div className="sm:col-span-2 lg:row-span-2 bg-white/80 backdrop-blur-md rounded-xl p-4 border border-emerald-200/50 shadow-lg animate-pulse" suppressHydrationWarning={true}>
@@ -1849,10 +1850,10 @@ export default function Home() {
                       <div className="w-12 h-12 bg-gray-300 rounded-lg mx-auto mb-2" suppressHydrationWarning={true}></div>
                       <div className="h-3 bg-gray-300 rounded mb-1" suppressHydrationWarning={true}></div>
                       <div className="h-4 bg-gray-300 rounded w-16 mx-auto" suppressHydrationWarning={true}></div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
+                  </div>
+                ))}
+              </div>
+            ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" suppressHydrationWarning={true}>
                   {/* Main Featured Product */}
                   {latestProducts.slice(0, 1).map((product) => (
@@ -1868,21 +1869,21 @@ export default function Home() {
                         </div>
                         
                         <div className="mb-3" suppressHydrationWarning={true}>
-                          {product.images && product.images.length > 0 ? (
-                            <img src={`/api/image-proxy?url=${encodeURIComponent(product.images[0])}`} alt={product.name} className="w-16 h-16 object-cover rounded-lg mx-auto" />
-                          ) : (
+                      {product.images && product.images.length > 0 ? (
+                        <img src={`/api/image-proxy?url=${encodeURIComponent(product.images[0])}`} alt={product.name} className="w-16 h-16 object-cover rounded-lg mx-auto" />
+                      ) : (
                             <div className="w-16 h-16 bg-emerald-500 rounded-lg flex items-center justify-center text-white font-bold text-xl mx-auto">
                               #
                             </div>
-                          )}
-                        </div>
+                      )}
+                    </div>
 
                         <h4 className="font-bold text-gray-900 text-base mb-2 line-clamp-2">{product.name}</h4>
                         <p className="text-xs text-gray-600 mb-3 line-clamp-2">
                           Высококачественный материал от проверенного поставщика
                         </p>
                         <div className="text-lg font-bold text-emerald-600" suppressHydrationWarning={true}>
-                          {formatPriceSimple(product.price)} ₽
+                      {formatPriceSimple(product.price)} ₽
                         </div>
                         
                         <div className="flex flex-wrap gap-1 justify-center mt-2">
@@ -1893,9 +1894,9 @@ export default function Home() {
                             Доставка
                           </span>
                         </div>
-                      </div>
-                    </Link>
-                  ))}
+                    </div>
+                  </Link>
+                ))}
                   
                   {/* Small Product Cards */}
                   {latestProducts.slice(1, 4).map((product) => (
@@ -1923,188 +1924,420 @@ export default function Home() {
                     <p className="text-xs text-gray-600">500+ материалов</p>
                   </Link>
                   
-                  {latestProducts.length === 0 && (
+                {latestProducts.length === 0 && (
                     <div className="col-span-full text-center py-6" suppressHydrationWarning={true}>
                       <div className="text-2xl mb-2">...</div>
                       <p className="text-sm text-gray-600">Загружаем товары</p>
-                    </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
+            )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Описание платформы и ролей */}
-      <section className="relative py-16">
+            {/* Функционал для ролей */}
+      <section className="relative py-16 overflow-hidden" suppressHydrationWarning={true}>
         <div className="container mx-auto px-6" suppressHydrationWarning={true}>
-          <div className="mb-16 flex justify-center" suppressHydrationWarning={true}>
-            <div className="relative max-w-5xl w-full">
-              {/* Base Card (градиент) */}
-              <div 
-                className="absolute top-8 left-1/2 transform -translate-x-1/2 rounded-2xl shadow-2xl"
-                style={{
-                  width: 'calc(100% * 0.85)',
-                  height: '28rem',
-                  background: 'linear-gradient(135deg, #4262ff 0%, #06b6d4 50%, #10b981 100%)',
-                  filter: 'drop-shadow(0 0 30px rgba(66, 98, 255, 0.4))'
-                }}
-              ></div>
-              
-              {/* Glass Card */}
-              <div 
-                className="relative rounded-2xl overflow-hidden"
-                style={{
-                  width: '100%',
-                  height: '32rem',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.1) 100%)'
-                }}
-                suppressHydrationWarning={true}
-              >
-                {/* Border overlays */}
-                <div 
-                  className="absolute inset-0 rounded-2xl border border-white/50"
-                  style={{
-                    maskImage: 'linear-gradient(135deg, white, transparent 50%)'
-                  }}
-                ></div>
-                <div 
-                  className="absolute inset-0 rounded-2xl border border-blue-400/50"
-                  style={{
-                    maskImage: 'linear-gradient(135deg, transparent 50%, white)'
-                  }}
-                ></div>
-                
-                {/* Content */}
-                <div className="flex flex-col h-full p-6 sm:p-8 lg:p-10 relative z-10">
-                  {/* Header */}
-                  <div className="text-center mb-6">
-                    <h3 className="text-2xl sm:text-3xl lg:text-4xl font-light leading-tight tracking-tight text-gray-800 mb-2">
-                      Как работает строительная экосистема
-                    </h3>
-                    <div className="text-xl sm:text-2xl lg:text-3xl font-semibold text-blue-600">
-                      BAU4YOU
-                    </div>
-                  </div>
-                  
-                  {/* Description */}
-                  <p className="text-base sm:text-lg text-gray-700 mb-6 text-center mx-auto max-w-4xl">
-                    Единая экосистема для всех участников строительного рынка — от заказчиков до поставщиков
-                  </p>
-                  
-                  {/* Icon strip */}
-                  <div className="flex items-center justify-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
-                      <span className="text-sm">🏗️</span>
-                    </div>
-                    <div 
-                      className="w-px h-6"
-                      style={{
-                        background: 'linear-gradient(180deg, transparent, rgba(255,255,255,0.3) 20%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0.3) 80%, transparent)'
-                      }}
-                    ></div>
-                    <div className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
-                      <span className="text-sm">🤝</span>
-                    </div>
-                    <div 
-                      className="w-px h-6"
-                      style={{
-                        background: 'linear-gradient(180deg, transparent, rgba(255,255,255,0.3) 20%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0.3) 80%, transparent)'
-                      }}
-                    ></div>
-                    <div className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
-                      <span className="text-sm">🎯</span>
-                    </div>
-                  </div>
-                  
-                  {/* Main divider */}
-                  <div 
-                    className="w-full h-px mb-6"
-                    style={{
-                      background: 'linear-gradient(90deg, transparent, rgba(75, 85, 99, 0.3) 20%, rgba(75, 85, 99, 0.5) 50%, rgba(75, 85, 99, 0.3) 80%, transparent)'
-                    }}
-                  ></div>
-                  
-                  {/* Stats Section */}
-                  <div className="flex justify-center mb-6">
-                    <div className="flex justify-between max-w-2xl w-full">
-                      <div className="text-center px-2">
-                        <div className="text-2xl sm:text-3xl font-semibold text-blue-600 mb-1">
-                          170<span className="text-lg">+</span>
-                        </div>
-                        <div className="text-xs uppercase tracking-wide text-gray-600 font-medium">Компаний</div>
-                      </div>
-                      <div 
-                        className="w-px h-16 my-auto"
-                        style={{
-                          background: 'linear-gradient(180deg, transparent, rgba(75, 85, 99, 0.3) 20%, rgba(75, 85, 99, 0.5) 50%, rgba(75, 85, 99, 0.3) 80%, transparent)'
-                        }}
-                      ></div>
-                      <div className="text-center px-2">
-                        <div className="text-2xl sm:text-3xl font-semibold text-blue-600 mb-1">
-                          60<span className="text-lg">+</span>
-                        </div>
-                        <div className="text-xs uppercase tracking-wide text-gray-600 font-medium">Тендеров</div>
-                      </div>
-                      <div 
-                        className="w-px h-16 my-auto"
-                        style={{
-                          background: 'linear-gradient(180deg, transparent, rgba(75, 85, 99, 0.3) 20%, rgba(75, 85, 99, 0.5) 50%, rgba(75, 85, 99, 0.3) 80%, transparent)'
-                        }}
-                      ></div>
-                      <div className="text-center px-2">
-                        <div className="text-2xl sm:text-3xl font-semibold text-blue-600 mb-1">500</div>
-                        <div className="text-xs uppercase tracking-wide text-gray-600 font-medium">Товаров</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Secondary divider */}
-                  <div 
-                    className="w-full h-px mb-4 opacity-70"
-                    style={{
-                      background: 'linear-gradient(90deg, transparent, rgba(75, 85, 99, 0.3) 20%, rgba(75, 85, 99, 0.5) 50%, rgba(75, 85, 99, 0.3) 80%, transparent)'
-                    }}
-                  ></div>
-                  
-                  {/* Feature tags */}
-                  <div className="flex flex-wrap justify-center gap-2 mb-6">
-                    <span className="text-xs px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-600">ТЕНДЕРНАЯ СИСТЕМА</span>
-                    <span className="text-xs px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-600">БАЗА ПОДРЯДЧИКОВ</span>
-                    <span className="text-xs px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-600">МАРКЕТПЛЕЙС</span>
-                    <span className="text-xs px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-600">БЕЗОПАСНЫЕ СДЕЛКИ</span>
-                    <span className="text-xs px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-600">БЫСТРЫЙ ПОИСК</span>
-                  </div>
-                  
-                  {/* Bottom Section */}
-                  <div className="mt-auto flex justify-between w-full">
-                    <div className="flex flex-col">
-                      <span className="text-gray-600 flex items-center gap-2 text-sm mb-1">
-                        <span className="text-xs">🔒</span> Верифицированные участники
-                      </span>
-                      <span className="text-xs text-gray-500 flex items-center gap-2">
-                        <span className="text-xs">🏆</span> Высокие стандарты качества
-                      </span>
-                    </div>
+          {/* Animated background elements */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-2xl animate-pulse" style={{animationDelay: '0s', animationDuration: '4s'}}></div>
+            <div className="absolute top-40 right-16 w-40 h-40 bg-gradient-to-br from-purple-400/15 to-pink-400/15 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s', animationDuration: '5s'}}></div>
+            <div className="absolute bottom-32 left-1/4 w-36 h-36 bg-gradient-to-br from-indigo-400/10 to-blue-400/10 rounded-full blur-2xl animate-pulse" style={{animationDelay: '2s', animationDuration: '6s'}}></div>
+            <div className="absolute bottom-20 right-1/3 w-28 h-28 bg-gradient-to-br from-cyan-400/20 to-teal-400/20 rounded-full blur-xl animate-pulse" style={{animationDelay: '0.5s', animationDuration: '3.5s'}}></div>
+          </div>
+
+          <div className="text-center mb-12 relative z-10 animate-fade-in-up" suppressHydrationWarning={true}>
+            <h3 className="text-3xl sm:text-4xl font-light text-gray-900 mb-4 animate-slide-down">
+              Как работает <span className="text-blue-600 font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">BAU4YOU</span>
+            </h3>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto animate-fade-in" style={{animationDelay: '0.2s'}}>
+              Выберите свою роль и узнайте, как платформа поможет вам достичь целей
+            </p>
+          </div>
+
+                                      {/* Вкладки ролей */}
+            <div className="flex justify-center mb-8" suppressHydrationWarning={true}>
+              <div className="bg-white/60 backdrop-blur-md rounded-2xl p-1 border border-white/30 shadow-lg flex flex-wrap justify-center gap-1 sm:gap-0">
+                {[
+                  { id: 'contractor', title: 'Подрядчику', icon: '🏗️' },
+                  { id: 'supplier', title: 'Поставщику', icon: '📦' },
+                  { id: 'customer', title: 'Заказчику', icon: '🎯' }
+                ].map((role) => (
+                  <button
+                    key={role.id}
+                    onClick={() => setActiveRole(role.id)}
+                    className={`px-3 sm:px-6 py-2 sm:py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-1 sm:gap-2 text-xs sm:text-base ${
+                      activeRole === role.id 
+                        ? 'bg-blue-600 text-white shadow-lg' 
+                        : 'text-gray-600 hover:text-blue-600 hover:bg-white/50'
+                    }`}
+                  >
+                    <span className="text-sm sm:text-lg">{role.icon}</span>
+                    <span className="whitespace-nowrap">{role.title}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
                     
-                    <div className="flex flex-col items-end">
-                      <span className="text-gray-600 flex items-center gap-2 text-sm mb-1">
-                        <span className="text-xs">⚡</span> Быстрые процессы
-                      </span>
-                      <p className="text-base font-medium text-blue-600 flex items-center gap-2">
-                        <span className="text-xs">🌐</span> bau4you.ru
-                      </p>
+          {/* Контент для активной роли */}
+          <div className="max-w-6xl mx-auto" suppressHydrationWarning={true}>
+            {activeRole === 'contractor' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                {/* Описание */}
+                <div className="space-y-6">
+                  <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 border border-white/50 shadow-lg">
+                    <h4 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-3">
+                      <span className="text-3xl">🏗️</span>
+                      Для подрядчиков
+                    </h4>
+                    <p className="text-gray-600 mb-6 leading-relaxed">
+                      Получайте заказы, создавайте команду и управляйте проектами в одной экосистеме
+                    </p>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-blue-600 text-sm">✓</span>
+                  </div>
+                        <div>
+                          <h5 className="font-semibold text-gray-900">Участие в тендерах</h5>
+                          <p className="text-sm text-gray-600">Подавайте заявки на проекты и получайте новые заказы</p>
+                  </div>
+              </div>
+                      
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-blue-600 text-sm">✓</span>
+                </div>
+                        <div>
+                          <h5 className="font-semibold text-gray-900">Создание компании</h5>
+                          <p className="text-sm text-gray-600">Зарегистрируйте компанию и добавьте информацию о услугах</p>
+              </div>
+            </div>
+                      
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-blue-600 text-sm">✓</span>
+                        </div>
+                        <div>
+                          <h5 className="font-semibold text-gray-900">Управление командой</h5>
+                          <p className="text-sm text-gray-600">Добавляйте сотрудников и распределяйте роли</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-blue-600 text-sm">✓</span>
+                        </div>
+                        <div>
+                          <h5 className="font-semibold text-gray-900">Персональный дашборд</h5>
+                          <p className="text-sm text-gray-600">Отслеживайте заявки, проекты и финансы</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Визуализация */}
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 backdrop-blur-md rounded-2xl p-6 border border-blue-200/50 shadow-lg">
+                    <div className="text-center mb-4">
+                      <div className="text-4xl mb-2">📊</div>
+                      <h5 className="font-bold text-gray-900">Дашборд подрядчика</h5>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="bg-white/70 rounded-lg p-3 flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Активные заявки</span>
+                        <span className="font-bold text-blue-600">12</span>
+                      </div>
+                      <div className="bg-white/70 rounded-lg p-3 flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Выполнено проектов</span>
+                        <span className="font-bold text-green-600">47</span>
+                      </div>
+                      <div className="bg-white/70 rounded-lg p-3 flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Команда</span>
+                        <span className="font-bold text-purple-600">8 человек</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 backdrop-blur-md rounded-2xl p-6 border border-green-200/50 shadow-lg">
+                    <div className="text-center">
+                      <div className="text-3xl mb-2">🎯</div>
+                      <h5 className="font-bold text-gray-900 mb-2">Быстрый старт</h5>
+                      <p className="text-sm text-gray-600 mb-4">3 простых шага для начала работы</p>
+                      <div className="space-y-2 text-left">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="w-5 h-5 bg-green-500 text-white rounded-full flex items-center justify-center text-xs">1</span>
+                          Создать профиль компании
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="w-5 h-5 bg-green-500 text-white rounded-full flex items-center justify-center text-xs">2</span>
+                          Добавить портфолио
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="w-5 h-5 bg-green-500 text-white rounded-full flex items-center justify-center text-xs">3</span>
+                          Подать первую заявку
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {activeRole === 'supplier' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                {/* Описание */}
+                <div className="space-y-6">
+                  <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 border border-white/50 shadow-lg">
+                    <h4 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-3">
+                      <span className="text-3xl">📦</span>
+                      Для поставщиков
+                    </h4>
+                    <p className="text-gray-600 mb-6 leading-relaxed">
+                      Продавайте материалы и оборудование, расширяйте клиентскую базу через маркетплейс
+                    </p>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-orange-600 text-sm">✓</span>
+                        </div>
+                        <div>
+                          <h5 className="font-semibold text-gray-900">Создание каталога</h5>
+                          <p className="text-sm text-gray-600">Добавляйте товары с фото, описанием и ценами</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-orange-600 text-sm">✓</span>
+                        </div>
+                        <div>
+                          <h5 className="font-semibold text-gray-900">Управление заказами</h5>
+                          <p className="text-sm text-gray-600">Обрабатывайте заказы и отслеживайте продажи</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-orange-600 text-sm">✓</span>
+                        </div>
+                        <div>
+                          <h5 className="font-semibold text-gray-900">Аналитика продаж</h5>
+                          <p className="text-sm text-gray-600">Отчёты по продажам и популярным товарам</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-orange-600 text-sm">✓</span>
+                        </div>
+                        <div>
+                          <h5 className="font-semibold text-gray-900">Прямая связь с клиентами</h5>
+                          <p className="text-sm text-gray-600">Встроенная система сообщений</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Визуализация */}
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-br from-orange-50 to-amber-50 backdrop-blur-md rounded-2xl p-6 border border-orange-200/50 shadow-lg">
+                    <div className="text-center mb-4">
+                      <div className="text-4xl mb-2">🛒</div>
+                      <h5 className="font-bold text-gray-900">Ваш маркетплейс</h5>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="bg-white/70 rounded-lg p-3 flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Товаров в каталоге</span>
+                        <span className="font-bold text-orange-600">156</span>
+                      </div>
+                      <div className="bg-white/70 rounded-lg p-3 flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Продано за месяц</span>
+                        <span className="font-bold text-green-600">2.1M ₽</span>
+                      </div>
+                      <div className="bg-white/70 rounded-lg p-3 flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Активных заказов</span>
+                        <span className="font-bold text-blue-600">23</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 backdrop-blur-md rounded-2xl p-6 border border-purple-200/50 shadow-lg">
+                    <div className="text-center">
+                      <div className="text-3xl mb-2">📈</div>
+                      <h5 className="font-bold text-gray-900 mb-2">Рост продаж</h5>
+                      <p className="text-sm text-gray-600 mb-4">Инструменты для развития бизнеса</p>
+                      <div className="space-y-2 text-left">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="w-5 h-5 bg-purple-500 text-white rounded-full flex items-center justify-center text-xs">💡</span>
+                          Рекомендации товаров
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="w-5 h-5 bg-purple-500 text-white rounded-full flex items-center justify-center text-xs">📊</span>
+                          Детальная аналитика
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="w-5 h-5 bg-purple-500 text-white rounded-full flex items-center justify-center text-xs">🎯</span>
+                          Таргетированная реклама
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeRole === 'customer' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                {/* Описание */}
+                <div className="space-y-6">
+                  <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 border border-white/50 shadow-lg">
+                    <h4 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-3">
+                      <span className="text-3xl">🎯</span>
+                      Для заказчиков
+                    </h4>
+                    <p className="text-gray-600 mb-6 leading-relaxed">
+                      Найдите надёжных подрядчиков и материалы для вашего проекта в одном месте
+                    </p>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-green-600 text-sm">✓</span>
+                        </div>
+                        <div>
+                          <h5 className="font-semibold text-gray-900">Создание тендеров</h5>
+                          <p className="text-sm text-gray-600">Опубликуйте проект и получите предложения от подрядчиков</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-green-600 text-sm">✓</span>
+                        </div>
+                        <div>
+                          <h5 className="font-semibold text-gray-900">Поиск подрядчиков</h5>
+                          <p className="text-sm text-gray-600">База проверенных компаний с рейтингами и отзывами</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-green-600 text-sm">✓</span>
+                        </div>
+                        <div>
+                          <h5 className="font-semibold text-gray-900">Покупка материалов</h5>
+                          <p className="text-sm text-gray-600">Заказывайте стройматериалы напрямую у поставщиков</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-green-600 text-sm">✓</span>
+                        </div>
+                        <div>
+                          <h5 className="font-semibold text-gray-900">Контроль проекта</h5>
+                          <p className="text-sm text-gray-600">Отслеживайте прогресс и управляйте бюджетом</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Визуализация */}
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-br from-green-50 to-teal-50 backdrop-blur-md rounded-2xl p-6 border border-green-200/50 shadow-lg">
+                    <div className="text-center mb-4">
+                      <div className="text-4xl mb-2">🏠</div>
+                      <h5 className="font-bold text-gray-900">Ваш проект</h5>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="bg-white/70 rounded-lg p-3 flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Полученных заявок</span>
+                        <span className="font-bold text-green-600">8</span>
+                      </div>
+                      <div className="bg-white/70 rounded-lg p-3 flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Средняя цена</span>
+                        <span className="font-bold text-blue-600">4.2M ₽</span>
+                      </div>
+                      <div className="bg-white/70 rounded-lg p-3 flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Срок выполнения</span>
+                        <span className="font-bold text-orange-600">45 дней</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 backdrop-blur-md rounded-2xl p-6 border border-blue-200/50 shadow-lg">
+                    <div className="text-center">
+                      <div className="text-3xl mb-2">🔍</div>
+                      <h5 className="font-bold text-gray-900 mb-2">Умный поиск</h5>
+                      <p className="text-sm text-gray-600 mb-4">Найдите идеальных исполнителей</p>
+                      <div className="space-y-2 text-left">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs">⭐</span>
+                          По рейтингу и отзывам
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs">💰</span>
+                          По бюджету проекта
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs">📍</span>
+                          По географии
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Преимущества платформы */}
+          {/* CTA кнопки */}
+          <div className="flex justify-center gap-4 mt-12" suppressHydrationWarning={true}>
+            {activeRole === 'contractor' && (
+              <>
+                <Link href="/companies/create" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105 shadow-lg">
+                  Создать компанию
+                </Link>
+                <Link href="/tenders" className="bg-white/80 backdrop-blur-md hover:bg-white/90 text-blue-600 px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105 border border-blue-200 shadow-lg">
+                  Смотреть тендеры
+                </Link>
+              </>
+            )}
+            {activeRole === 'supplier' && (
+              <>
+                <Link href="/products/create" className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105 shadow-lg">
+                  Добавить товары
+                </Link>
+                <Link href="/products" className="bg-white/80 backdrop-blur-md hover:bg-white/90 text-orange-600 px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105 border border-orange-200 shadow-lg">
+                  Смотреть маркетплейс
+                </Link>
+              </>
+            )}
+            {activeRole === 'customer' && (
+              <>
+                <Link href="/tenders/create" className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105 shadow-lg">
+                  Создать тендер
+                </Link>
+                <Link href="/companies" className="bg-white/80 backdrop-blur-md hover:bg-white/90 text-green-600 px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105 border border-green-200 shadow-lg">
+                  Найти подрядчиков
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Преимущества платформы */}
+      <section className="relative py-16" suppressHydrationWarning={true}>
+        <div className="container mx-auto px-6" suppressHydrationWarning={true}>
           <div className="relative py-16" suppressHydrationWarning={true}>
             {/* Animated Background */}
             <div className="absolute inset-0 overflow-hidden rounded-3xl">
@@ -2121,31 +2354,31 @@ export default function Home() {
                 </h3>
                 <p className="text-sm sm:text-base text-gray-600">Главные преимущества работы с BAU4YOU</p>
               </div>
-              
+            
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8" suppressHydrationWarning={true}>
-                {[
-                  {
-                    title: 'Безопасность',
+              {[
+                {
+                  title: 'Безопасность',
                     description: 'Все участники проходят верификацию. Гарантия безопасных сделок.',
                     color: 'purple',
                     stats: '99.8%',
                     statsLabel: 'Безопасность'
-                  },
-                  {
-                    title: 'Скорость',
+                },
+                {
+                  title: 'Скорость',
                     description: 'Быстрый поиск партнеров и материалов. Автоматизация процессов.',
                     color: 'indigo',
                     stats: '24/7',
                     statsLabel: 'Поддержка'
-                  },
-                  {
-                    title: 'Качество',
+                },
+                {
+                  title: 'Качество',
                     description: 'Только проверенные поставщики и подрядчики с высоким рейтингом.',
                     color: 'pink',
                     stats: '4.9★',
                     statsLabel: 'Рейтинг'
-                  }
-                ].map((benefit, index) => (
+                }
+              ].map((benefit, index) => (
                   <div 
                     key={index} 
                     className="relative group"
@@ -2224,8 +2457,8 @@ export default function Home() {
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                </div>
+              ))}
               </div>
             </div>
           </div>
